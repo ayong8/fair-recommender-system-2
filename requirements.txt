@@ -1,0 +1,32 @@
+# This file may be used to create an environment using:
+# $ conda create --name <env> --file <this file>
+# platform: osx-arm64
+
+# NOTE: Many of these dependencies were not on channels I could find, at least at the versions specified.
+# For development purposes, I have trimmed channel identifiers and versions where necessary to continue work unimpeded.
+# We can reintroduce specificity at a later date. -Quinn
+
+asgiref=3.6.0
+backports.zoneinfo=0.2.1
+bzip2=1.0.8
+ca-certificates=2022.12.7
+django=4.1.7
+django-cors-headers=3.14.0
+django-environ
+libffi=3.4.2
+libsqlite=3.40.0
+libzlib=1.2.13
+# ncurses=6.3
+openssl=3.0.8
+pip=23.0.1
+postgresql
+python=3.9.16
+python_abi=3.9
+# readline=8.1.2
+setuptools=67.5.1
+sqlparse=0.4.3
+tk=8.6.12
+typing_extensions=4.4.0
+tzdata=2022g
+wheel=0.38.4
+xz=5.2.6
