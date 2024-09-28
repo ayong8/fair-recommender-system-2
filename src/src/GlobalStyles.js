@@ -3,7 +3,8 @@ import styled from "styled-components";
 export const l = {
   // cd: CategoryDist
   cd: {
-    h: 400
+    h: 400,
+    minH: 15
   }
 };
 
@@ -11,6 +12,8 @@ export const c = {
   actualUser: 'lavender',
   predUser: 'mediumpurple',
   predOthers: 'pink',
+  personalization: 'orange',
+  diversity: 'purple',
   system: "#433155",
   systemBright: "rgb(127, 98, 156)",
   systemLight: "#c2c8d4",

@@ -1,4 +1,5 @@
 .App {
+  width: 500px;
   font-family: 'PT Sans Narrow';
   padding: 20px;
 }
@@ -15,6 +16,23 @@
 
 .App-link {
   color: #61dafb;
+}
+
+#svgContainer { 
+	z-index: 999;
+	position:absolute;
+	opacity: 0.5;
+}
+
+
+.topic {
+  line-height: 1.2;
+  background-color: lightpink;
+  border: 1px solid black;
+  border-radius: 2px;
+  padding: 4px;
+  margin: 1px 3px;
+  pointer-events: none;
 }
 
 @keyframes App-logo-spin {
