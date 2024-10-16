@@ -1,107 +1,155 @@
 import React, { useEffect, useState } from 'react';
-import $ from 'jquery';
+import * as d3 from 'd3';
+import _ from 'lodash';
 import styled from 'styled-components';
 
 import Topic from './Topic';
-import { l, c } from './GlobalStyles';
+import Tooltips from './Tooltips';
+import { l, c, CategoryWrapper } from './GlobalStyles';
 
-const CategoryWrapper = styled.div.attrs({
-  className: 'category_wrapper'
-})`
-  	width: 100px;
-	// background-color: whitesmoke;
-	border: 2px white solid;
-	border-radius: 5px;
-	text-align: center;
-	font-size: 0.8rem;
-	margin: 0 auto;
-	overflow-y: scroll;
-	// display: inline-block;
+const CategoryContentWrapper = styled.div`
+  height: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-left: 0, 
+  flexDirection: column
 `;
 
-const Category = ({
-  	cat,
-	panelID,
-	dataType,
-	userType,
-	selectedEntry,
-	setSelectedEntry
+const CategoryName = styled.div`
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  height: calc(100% - 45px);
+`;
+
+const TopicsContainer = styled.div`
+  display: flex;
+  align-items: ${props => props.isSmallCategory ? 'flex-end' : 'stretch'};
+  justify-content: ${props => props.isSmallCategory ? 'flex-start' : 'flex-end'};
+  flex-direction: ${props => props.isSmallCategory ? 'row' : 'column'};
+  height: ${props => props.isSmallCategory ? '100%' : 'auto'};
+`;
+
+const CategoryOnlyWrapper = styled.div`
+  display: flex;
+  height: 100%;
+  justify-content: center; // Changed from flex-end to center
+  align-items: center; // Added to center vertically
+`;
+
+const CategoryNameOnly = styled.div`
+  line-height: 1.2; // Changed from 250% to 1.2 for better readability
+  text-align: center; // Added to ensure horizontal centering
+`;
+
+const Category = ({ 
+	cat, 
+	panelID, 
+	selectedEntry, 
+	setSelectedEntry, 
+	showTopicHighlight, 
+	bipolarColorScale 
 }) => {
-	const [showTopics, setShowTopics] = useState(false);
+	const [showTopicsForCategory, setShowTopicsForCategory] = useState(false);
+	// const isSmallCategory = cat.ratio <= 0.15;
+	const fontSizeScale = d3.scaleLinear().domain([0.01, 0.1, 0.15, 0.5]).range(['8px', '10px', '17px', '17px']);
 
-	function handleMouseOverCategory (e) {
-		console.log('e.target.className: ', e.target.classList[e.target.classList.length-1])
-		const catName = e.target.classList[e.target.classList.length-1];
-		$('.' + catName).css('border', '1px solid black');
-	
-		console.log('this: ', $(e.target))
-		const catData = $(e.target).data('cat');
-		// console.log('cat data: ', $(e.target).data('cat'))
-		// {catData.topics.map((t) => {
-		// 	return (
-		// 		<div style={{ height: 100*t.ratio, border: '1px solid white', lineHeight: 1.2 }}>{t.name}</div>
-		// 	)
-		// })}
-
-		e.stopPropagation();
-		$(e.target).empty();
-		$.each(catData.topics, function(index, obj) {
-			console.log('topic: ', obj.name)
-			const newDiv = $("<div class='topic'>").text(`${obj.name}`).attr('class', 'topic').attr('pointer-events', 'none');
-			$(e.target).append(newDiv);
-		});
-	}
-	
-	const handleMouseOutCategory = (e) => {
-		const catName = e.target.classList[e.target.classList.length-1];
-		$('.' + catName).css('border', '');
-	}
-
-	// Highlight the border of the category if it is a major category or selected one
+	// Helper functions
 	const highlightCategoryBorder = (cat, selectedEntry) => {
-		return selectedEntry.name == cat.name ? '3px solid blue'
-			: (cat.is_major ? '3px solid black' : null)
-	}
-
-	const colorCategory = (cat) => {
-		let catColor = 'none';
-		if (cat.isTopPersonalization && ((panelID == 'actualUser') || (panelID == 'predUser')))
-			catColor = c.personalization;
-		else if (cat.isTopDiversity && ((panelID == 'predOthers') || (panelID == 'predUser')))
-			catColor = c.diversity;
-		else
-			catColor = c[panelID];
-
-		return catColor;
-	}
+	  return selectedEntry.name === cat.name 
+		? '3px solid blue' 
+		: (cat.isMajor ? '3px solid black' : null);
+	};
+  
+	const colorCategory = (cat, bipolarColorScale, panelID) => {
+		if (cat.isTopPersonalization && ['actualUser', 'predUser'].includes(panelID)) {
+		  return bipolarColorScale.personalization;
+		}
+		
+		if (cat.isTopDiversity && ['predOthers', 'predUser'].includes(panelID)) {
+		  return bipolarColorScale.diversity;
+		}
+		
+		return c[panelID];
+	  };
+  
+	// Render functions
+	const renderAllTopicsOnMouseover = () => (
+		cat.topics.map(topic => (
+		  <Topic
+			topic={topic}
+			cat={cat}
+			key={topic.name}
+		  />
+		))
+	  );
+  
+	const renderCategoryWithTopTopics = (cat) => (
+	  <CategoryContentWrapper 
+	  	style={{ 
+			paddingLeft: cat.isSmall ? '5px' : '0', 
+			flexDirection: cat.isSmall ? 'row' : 'column' 
+		}}>
+		<CategoryName 
+			style={{ fontSize: fontSizeScale(cat.ratio) }}
+		>
+          {_.capitalize(cat.name)}
+        </CategoryName>
+        <TopicsContainer 
+			isSmallCategory={cat.isSmall}
+		>
+		  {cat.topics.slice(0, 2).map(topic => (
+			<Topic 
+			  topic={topic}
+			  cat={cat}
+			  isSmallCategory={cat.isSmall}
+			  key={topic.name}
+			/>
+		  ))}
+		</TopicsContainer>
+	  </CategoryContentWrapper>
+	);
+  
+	const renderCategoryOnly = (cat) => (
+		<CategoryOnlyWrapper>
+		  <CategoryNameOnly 
+		  	fontSize={fontSizeScale(cat.ratio)}
+		  >
+			{_.capitalize(cat.name)}
+		  </CategoryNameOnly>
+		</CategoryOnlyWrapper>
+	  );
 
 	return (
 		<CategoryWrapper
 			style={{
-				backgroundColor: colorCategory(cat),
-				height: l.cd.h * cat.ratio, 
-				lineHeight: cat.ratio*30,
-				border: highlightCategoryBorder(cat, selectedEntry)
+				backgroundColor: colorCategory(cat, bipolarColorScale, panelID),
+				height: l.cd.h * 0.8 * cat.ratio,
+				minHeight: '20px',
+				border: highlightCategoryBorder(cat, selectedEntry),
 			}}
-			// data-cat={JSON.stringify(cat)}
-			className={ panelID + ' ' + cat.name }
+			className={`${panelID} ${cat.name}`}
 			onMouseOver={() => {
-				setShowTopics(true);
+				setShowTopicsForCategory(false);
 				setSelectedEntry(cat);
 			}}
 			onMouseOut={() => {
-				setShowTopics(true);
+				setShowTopicsForCategory(false);
 				setSelectedEntry('');
 			}}
-		>{showTopics ? 
-			cat.topics.map(topic => 
-				(<Topic 
-					topic={topic}
-					cat={cat}
-				/>))
-			: cat.name}
+		>
+			<Tooltips
+				cat={cat}
+			/>
+			{showTopicHighlight
+			? (showTopicsForCategory ? 
+				renderAllTopicsOnMouseover(cat) 
+				: renderCategoryWithTopTopics(cat))
+			: renderCategoryOnly(cat)
+			}
 		</CategoryWrapper>
 	);
-}
+  };
 
 export default Category;

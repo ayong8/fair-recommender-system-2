@@ -3,9 +3,8 @@ import _ from 'lodash';
 
 // Reference: https://jsfiddle.net/bbcfk164/
 // https://gist.github.com/alojzije/11127839
-const drawPaths = (catsActualUser, catsPredUser, catsPredOthers) => {
-    const commonCatsWithinMe = _.intersectionBy(catsActualUser, catsPredUser, 'name'),
-        commonCatsBtnMeOthers = _.intersectionBy(catsPredUser, catsPredOthers, 'name');
+const drawPaths = (svg, catsActualUser, catsPredUser) => {
+    const commonCatsWithinMe = _.intersectionBy(catsActualUser, catsPredUser, 'name');
 
     //helper functions, it turned out chrome doesn't support Math.sgn() 
     function signum(x) {
@@ -38,12 +37,37 @@ const drawPaths = (catsActualUser, catsPredUser, catsPredOthers) => {
         }
         // draw tha pipe-like path
         // 1. move a bit down, 2. arch,  3. move a bit to the right, 4.arch, 5. move down to the end 
-        path.attr('d',  'M'  + startX + ' ' + startY +
-                        ' H' + (startX + delta) +
-                        ' A' + delta + ' ' +  delta + ' 0 0 ' + arc2 + ' ' + (startX + 2*delta) + ' ' + (startY + delta*signum(deltaY)) +
-                        ' V' + (endY - delta*signum(deltaY)) + 
-                        ' A' + delta + ' ' +  delta + ' 0 0 ' + arc1 + ' ' + (startX + 3*delta) + ' ' + endY +
-                        ' H' + endX );
+        // path.attr('d',  'M'  + startX + ' ' + startY +
+        //                 ' H' + (startX + delta) +
+        //                 ' A' + delta + ' ' +  delta + ' 0 0 ' + arc2 + ' ' + (startX + 2*delta) + ' ' + (startY + delta*signum(deltaY)) +
+        //                 ' V' + (endY - delta*signum(deltaY)) + 
+        //                 ' A' + delta + ' ' +  delta + ' 0 0 ' + arc1 + ' ' + (startX + 3*delta) + ' ' + endY +
+        //                 ' H' + endX );
+
+        // Calculate control points for the Bézier curve
+        var midX = (startX + endX) / 2;
+        var controlY = (startY + endY) / 2;
+        var controlPoint1X = midX;
+        var controlPoint1Y = startY;
+        var controlPoint2X = midX;
+        var controlPoint2Y = endY;
+
+        // Draw the smooth S-curve using cubic Bézier
+        path.attr('d', `M${startX},${startY} ` +
+                    `C${controlPoint1X},${controlPoint1Y} ` +
+                    `${controlPoint2X},${controlPoint2Y} ` +
+                    `${endX},${endY}`);
+        path.attr('stroke', 'black');
+        path.attr('stroke-width', 2);
+        svg.append(path);
+
+        //   $(newPath).attr({
+    //     id: `path-from-actual-to-pred-user-${cat.name}`,
+    //     // d: 'M10 10 L90 90',
+    //     // stroke: 'black',
+    //     // 'stroke-width': 2,
+    //     fill: 'none'
+    //   });
 
         // path.attr("d",  "M"  + startX + " " + startY +
         //                 " V" + (startY + delta) +
@@ -80,37 +104,25 @@ const drawPaths = (catsActualUser, catsPredUser, catsPredOthers) => {
         var endX = endCoord.left - svgLeft;
         var endY = endCoord.top + 0.5*endElem.outerHeight() - svgTop;
 
-        console.log('x and y: ', startX, startY, endX, endY);
-
         // call function for drawing the path
         drawPath(svg, path, startX, startY, endX, endY);
     }
 
-
-
-    function connectAll(commonCatsWithinMe, commonCatsBtnMeOthers) {
-        console.log('dddddddfff: ', commonCatsWithinMe)
-
+    function connectAll(svg, commonCatsWithinMe) {
         commonCatsWithinMe.forEach(cat => {
             console.log('catName: ', cat.name)
-            connectElements($('#svg1'), $(`#path-from-actual-to-pred-user-${cat.name}`), $('.actualUser' + `.${cat.name}`),   $('.predUser' + `.${cat.name}`));
+            const newPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            $(newPath).attr({
+                id: `path-from-actual-to-pred-user-${cat.name}`,
+                stroke: 'black',
+                'stroke-width': 2,
+                fill: 'none'
+            });
+            connectElements(svg, $(newPath), $('.actualUser' + `.${cat.name}`),   $('.predUser' + `.${cat.name}`));
         });
-
-        commonCatsBtnMeOthers.forEach(cat => {
-            connectElements($('#svg1'), $(`#path-from-pred-user-to-others-${cat.name}`), $('.predUser' + `.${cat.name}`),   $('.predOthers' + `.${cat.name}`));
-        });
-        
-        // connectElements($('#svg1'), $('#path2'), $('#red'),    $('#orange'));
-        // connectElements($('#svg1'), $('#path3'), $('#teal'),   $('#aqua')  );
-        // connectElements($('#svg1'), $('#path4'), $('#red'),    $('#aqua')  ); 
-        // connectElements($('#svg1'), $('#path5'), $('#purple'), $('#teal')  );
-        // connectElements($('#svg1'), $('#path6'), $('#orange'), $('#green') );
     }
 
-    $('#svg1').attr('height', '0');
-    $('#svg1').attr('width', '0');
-    connectAll(commonCatsWithinMe, commonCatsBtnMeOthers);
-    console.log('drawpathh');
+    connectAll(svg, commonCatsWithinMe);
 }
 
 export default drawPaths;
