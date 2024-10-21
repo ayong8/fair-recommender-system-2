@@ -44,13 +44,6 @@ const Topic = ({
 	const parentDiv = $('.category_wrapper.' + cat.name).height();
 	const heightFromRatio = parentDiv * topic.ratio - 50;
 	const topicDivHeight = l.cd.minH < heightFromRatio ? heightFromRatio : l.cd.minH;
-	// console.log('topic: ', cat.name, topic.ratio, heightFromRatio, topicDivHeight);
-
-	// useEffect(() => {
-	// 	drawPaths();
-	// }, []);
-
-	// drawPaths();
 
 	if (!isSmallCategory) 
 		return (<TopicWrapper

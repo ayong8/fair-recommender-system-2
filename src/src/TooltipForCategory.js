@@ -4,7 +4,7 @@ import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
   
 import _ from 'lodash';
 
-const Tooltips = ({
+const TooltipForCategory = ({
 	cat
 }) => {
 	const renderMeasures = () => {
@@ -37,4 +37,4 @@ const Tooltips = ({
 	);
 }
 
-export default Tooltips;
+export default TooltipForCategory;

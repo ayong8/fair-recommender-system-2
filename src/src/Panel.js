@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { scaleLinear } from 'd3-scale';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import { Tooltip } from '@mui/material';
 
 import Category from './Category';
 import CategoryMajor from './CategoryMajor';
 import CategoryMinor from './CategoryMinor';
 import CategoryNormal from './CategoryNormal';
-import { l } from './GlobalStyles';
+import TooltipForAlgoEff from './TooltipForAlgoEff';
+import { l, stereotypeColorScale } from './GlobalStyles';
+
 
 const PanelWrapper = styled.div.attrs({
   className: 'panel_wrapper'
@@ -46,26 +46,21 @@ const CategoryWrapper = styled.div`
   margin: 0 -10px;
 `;
 
-const MinorCategoryWrapper = styled(CategoryWrapper)`
-  background-color: #e6f3ff; // Light blue background for minor categories
-`;
-
 const Panel = ({
 	panelID,
 	dataType,
 	userType,
   	cats,
 	user,
+	algoEffs,
 	majorPrefMeasure,
 	minorPrefMeasure,
 	selectedEntry,
 	setSelectedEntry,
 	showTopicHighlight,
-	bipolarColorScale
+	bipolarColor,
+	explanations
 }) => {
-	const stereotypeColorScale = scaleLinear()
-		.domain([-1, 0, 1])
-		.range(['#ff9999', '#ffffff', '#99ff99']);
 
 	const predUserPanelForStyles = panelID === 'predUser' ? {
 		backgroundColor: stereotypeColorScale(user.stereotype),
@@ -74,7 +69,7 @@ const Panel = ({
 		position: 'relative', // Keep this
 		paddingRight: '15px' // Add padding to accommodate the icon
 	} : {};
-	
+
 	return (
 		<PanelWrapper>
 		<PanelTitle>{dataType}</PanelTitle>
@@ -85,19 +80,10 @@ const Panel = ({
 			}}
 		>
 			{panelID === 'predUser' && (
-				<Tooltip title="Help information for category list">
-					<HelpOutlineIcon 
-						style={{
-							position: 'absolute',
-							top: '2px',
-							right: '2px',
-							fontSize: '13px',
-							color: '#666',
-							cursor: 'pointer',
-							zIndex: 1
-						}}
-					/>
-				</Tooltip>)}
+				<TooltipForAlgoEff
+					algoEff={algoEffs.stereotype}
+				/>
+			)}
 			{cats.map((cat) => {
 				if (cat.isMajor) {
 					return (<CategoryMajor
@@ -106,10 +92,11 @@ const Panel = ({
 						dataType={dataType} 
 						userType={userType} 
 						cat={cat} 
+						algoEffs={algoEffs}
 						selectedEntry={selectedEntry}
 						setSelectedEntry={setSelectedEntry}
 						showTopicHighlight={showTopicHighlight}
-						bipolarColorScale={bipolarColorScale}
+						bipolarColor={bipolarColor}
 						majorPrefMeasure={majorPrefMeasure}
 					/>)
 				} else if (cat.isMinor) {
@@ -119,10 +106,11 @@ const Panel = ({
 						dataType={dataType} 
 						userType={userType} 
 						cat={cat} 
+						algoEffs={algoEffs}
 						selectedEntry={selectedEntry}
 						setSelectedEntry={setSelectedEntry}
 						showTopicHighlight={showTopicHighlight}
-						bipolarColorScale={bipolarColorScale}
+						bipolarColor={bipolarColor}
 						minorPrefMeasure={minorPrefMeasure}
 					/>)
 				} else {
@@ -135,7 +123,7 @@ const Panel = ({
 						selectedEntry={selectedEntry}
 						setSelectedEntry={setSelectedEntry}
 						showTopicHighlight={showTopicHighlight}
-						bipolarColorScale={bipolarColorScale}
+						bipolarColor={bipolarColor}
 					/>)
 				}
 			})}

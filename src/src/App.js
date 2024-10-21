@@ -91,25 +91,26 @@ function App() {
   const [catsActualOthers, setCatsActualOthers] = useState([]);
   const [catsPredOthers, setCatsPredOthers] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(460523);
+  const [algoEffs, setAlgoEffs] = useState({});
+  const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const isInitialLoad = useRef(true);
 
   // Add these new state variables
   const [showTopicHighlight, setShowTopicHighlight] = useState(true);
-  const [bipolarColorScale, setBipolarColorScale] = useState({ 'personalization': c.negative, 'diversity': c.positive });
+  const [bipolarColor, setBipolarColor] = useState({ 'personalization': c.negative, 'diversity': c.positive });
   const [selectedEntry, setSelectedEntry] = useState({});
   const [selectedOthers, setSelectedOthers] = useState('all_users');
 
   // Add this ref
   const ref = useRef(null);
-  let commonCatsWithinMe = [];
 // if (!catsActualUser || catsActualUser.length == 0)
 //   return <div />  
 
 
   // // Add this function to handle bipolar color scale changes
-  // const handleBipolarColorScaleChange = (newScale) => {
-  //   setBipolarColorScale(newScale);
+  // const handlebipolarColorChange = (newScale) => {
+  //   setbipolarColor(newScale);
   // };
 
   // Initial load using GET method
@@ -124,6 +125,9 @@ function App() {
         setCatsPredUser(data.catsPredUser);
         setCatsActualOthers(data.catsActualOthers);
         setCatsPredOthers(data.catsPredOthers);
+        setAlgoEffs(data.algoEffs);
+        setItems(data.items);
+        console.log('items: ', data.items)
       } catch (error) {
         console.error('Error loading initial data:', error);
       } finally {
@@ -136,36 +140,37 @@ function App() {
   }, []);
 
   // Update data when selectedUserId changes using POST method
-  useEffect(() => {
-    const updateUserData = async () => {
-      if (isInitialLoad.current) return; // Skip if it's the initial load
+  // useEffect(() => {
+  //   const updateUserData = async () => {
+  //     if (isInitialLoad.current) return; // Skip if it's the initial load
 
-      setIsLoading(true);
-      try {
-        const response = await axios.post('http://localhost:8000/news_rec/loadData/', {
-          user_id: selectedUserId
-        });
-        const data = response.data;
-        setUser(data.user);
-        setCatsActualUser(data.catsActualUser);
-        setCatsPredUser(data.catsPredUser);
-        setCatsActualOthers(data.catsActualOthers);
-        setCatsPredOthers(data.catsPredOthers);
-      } catch (error) {
-        console.error('Error updating user data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  //     setIsLoading(true);
+  //     try {
+  //       const response = await axios.post('http://localhost:8000/news_rec/loadData/', {
+  //         user_id: selectedUserId
+  //       });
+  //       const data = response.data;
+  //       setUser(data.user);
+  //       setCatsActualUser(data.catsActualUser);
+  //       setCatsPredUser(data.catsPredUser);
+  //       setCatsActualOthers(data.catsActualOthers);
+  //       setCatsPredOthers(data.catsPredOthers);
+  //     } catch (error) {
+  //       console.error('Error updating user data:', error);
+  //     } finally {
+  //       setIsLoading(false);
+  //     }
+  //   };
 
-    updateUserData();
-  }, [selectedUserId]);
+  //   updateUserData();
+  // }, [selectedUserId]);
 
   // Render lines between categories to represent miscalibration
   useEffect(() => {
-    const svg = $(ref.current);
-    commonCatsWithinMe = _.intersectionBy(catsActualUser, catsPredUser, 'name');
-    drawPaths(svg, catsActualUser, catsPredUser);
+    drawPaths(
+      $(ref.current), 
+      catsActualUser, 
+      catsPredUser);
   }, [ref.current, catsActualUser]);
 
   if (isLoading) {
@@ -177,25 +182,25 @@ function App() {
       <Header>Interactive RS</Header>
       <ThemeProvider theme={theme}>
         <div style={{ display: 'flex' }}>
-        <SelectUser 
-          selectedUserId={selectedUserId}
-          setSelectedUserId={setSelectedUserId}
-          users={users}
-        />
-        <FormGroup sx={{ width: '300px' }}>
-          <FormControlLabel 
-            control={
-              <Switch 
-                  checked={showTopicHighlight}
-                  onChange={() => setShowTopicHighlight(prev => !prev)}
-                  defaultChecked />
-              } 
-            label="Show topic highlight" 
+          <SelectUser 
+            selectedUserId={selectedUserId}
+            setSelectedUserId={setSelectedUserId}
+            users={users}
           />
-        </FormGroup>
+          <FormGroup sx={{ width: '300px' }}>
+            <FormControlLabel 
+              control={
+                <Switch 
+                    checked={showTopicHighlight}
+                    onChange={() => setShowTopicHighlight(prev => !prev)}
+                    defaultChecked />
+                } 
+              label="Show topic highlight" 
+            />
+          </FormGroup>
         </div>
         <BipolarValueSlider 
-          setBipolarColorScale={setBipolarColorScale}
+          setbipolarColor={setBipolarColor}
         />
         <MainViewWrapper>
           <WrapperForMe>
@@ -212,20 +217,21 @@ function App() {
                 selectedEntry={selectedEntry}
                 setSelectedEntry={setSelectedEntry}
                 showTopicHighlight={showTopicHighlight}
-                bipolarColorScale={bipolarColorScale}
+                bipolarColor={bipolarColor}
               />
               <Panel 
                 panelID={'predUser'}
                 dataType={'Recommended'} 
                 userType={'user'}
                 user={user}
+                algoEffs={algoEffs}
                 majorPrefMeasure={user.major_pref_amp}
                 minorPrefMeasure={user.minor_pref_deamp}
                 cats={catsPredUser}
                 selectedEntry={selectedEntry}
                 setSelectedEntry={setSelectedEntry}
                 showTopicHighlight={showTopicHighlight}
-                bipolarColorScale={bipolarColorScale}
+                bipolarColor={bipolarColor}
               />
             </WrapperForMyCategory>
           </WrapperForMe>
@@ -248,31 +254,17 @@ function App() {
                 selectedEntry={selectedEntry}
                 setSelectedEntry={setSelectedEntry}
                 showTopicHighlight={showTopicHighlight}
-                bipolarColorScale={bipolarColorScale}
+                bipolarColor={bipolarColor}
               />
             </WrapperForOthersCategory>
           </WrapperForOthers>
           <div id="svgContainer">
-            <svg ref={ref} id="svg1" width="0" height="0">
-              {commonCatsWithinMe.map(cat => {
-                return <path
-                  id={`path-from-actual-to-pred-user-${cat.name}`}
-                  d="M0 0"         
-                  stroke="#000" 
-                  fill="none" 
-                  strokeWidth="2px"
-                />
-              })}
-              {/* {commonCatsBtnMeOthers.map(cat => {
-                return <path
-                  id={`path-from-pred-me-to-others-${cat.name}`}
-                  d="M0 0"         
-                  stroke="#000" 
-                  fill="none" 
-                  strokeWidth="2px"
-                />
-              })} */}
-            </svg>
+            <svg 
+              id="svg1"
+              ref={ref} 
+              width="0" 
+              height="0" 
+            />
           </div>
         </MainViewWrapper>
       </ThemeProvider>

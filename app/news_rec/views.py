@@ -5,7 +5,12 @@ import pandas as pd
 import numpy as np
 from scipy.stats import entropy as kl
 from scipy.spatial.distance import jensenshannon
-import pickle, ast, os
+from scipy.optimize import minimize
+import pickle, ast, os, json
+from collections import Counter
+
+from ..classes import Topic, Category, Item, User
+import util
 
 data_dir = './app/static/data'
 measures = {
@@ -14,217 +19,134 @@ measures = {
 }
 
 class LoadData(APIView):
+    '''
+        Variables and data across all users and application setting
+    '''
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.load_static_data()
+        self.algo_eff_list = ['miscalibration', 'filterBubble', 'stereotype', 'popularityBias']
+        self._algo_effs = None  # Initialize as None
+
+    @property
+    def algo_effs(self):
+        if self._algo_effs is None:
+            self._algo_effs = self.calc_algo_effs()
+        return self._algo_effs
 
     def load_static_data(self):
         self.df_users = pd.read_csv(os.path.join(data_dir, 'df_user_info.csv'))
         self.df_user_stat = pd.read_csv(os.path.join(data_dir, 'df_user_stat.csv'))
-        self.df_actual = pd.read_csv(os.path.join(data_dir, 'df_actual_sample.csv'))
-        self.df_pred = pd.read_csv(os.path.join(data_dir, 'df_pred_sample.csv'))
+        self.df_actual_all = pd.read_csv(os.path.join(data_dir, 'df_actual_sample.csv'))
+        self.df_pred_all = pd.read_csv(os.path.join(data_dir, 'df_pred_sample.csv'))
         self.user_ids = pickle.load(open(os.path.join(data_dir, 'user_ids_all.pkl'), 'rb'))
         self.actual_uvs = pickle.load(open(os.path.join(data_dir, 'actual_uvs_all.pkl'), 'rb'))
         self.pred_uvs = pickle.load(open(os.path.join(data_dir, 'pred_uvs_all.pkl'), 'rb'))
         [ self.actual_arith_mean_uv, _, 
             self.pred_arith_mean_uv, _ ] = pickle.load(open(os.path.join(data_dir, 'mean_uvs_all.pkl'), 'rb'))
-        self.categories = pd.read_csv(os.path.join(data_dir, 'categories.txt'), \
+        self.category_names = pd.read_csv(os.path.join(data_dir, 'categories.txt'), \
                             sep='|', header=None, names=['da', 'en'])['en'].tolist()
+        self.explanations = json.load(open(os.path.join(data_dir, 'explanations.json'), 'rb'))
 
     def get(self, request, format=None):
         user_id = 460523  # Default user ID
-        user_data = load_user_data(user_id, self.df_users, self.df_user_stat, self.df_actual, 
-                                   self.df_pred, self.user_ids, self.actual_uvs, self.pred_uvs, 
-                                   self.actual_arith_mean_uv, self.pred_arith_mean_uv, self.categories)
+        user = self.get_user(user_id)
+        user.get_all_user_categories(self.category_names)
+        user.calc_user_level_measures()
 
-        # Compute user-level measures
-        user_level_measures = calc_user_level_measures(user_data['cats_actual'], user_data['cats_pred'], user_data['cats_pred_others'])
-        user_dict = {
-            **user_data['user_info_dict'],
-            **user_data['user_stat_dict'],
-            **user_level_measures
-        }
+        # Get unique items
+        user.df_actual_user['actual'] = 1
+        user.df_pred_user['pred'] = user.df_pred_user['score']
+        df_items = pd.concat([user.df_actual_user, user.df_pred_user], sort=False)
+
+        df_items['actual'] = df_items['actual'].fillna(0)
+        df_items['pred'] = df_items['pred'].fillna(0)
+        df_items['title_en'] = '1'
+        df_items['subtitle_en'] = '1'
+        df_items['body_en'] = '1'
+        df_items = df_items.drop_duplicates(subset='itemID', keep='first')
+        df_items = df_items.fillna(0)
+        print('df_items: ', df_items)
+        df_items.to_csv(os.path.join(data_dir, 'df_items.csv'))
+
+        
+        # Get unique topics
+        df_topics = df_items.copy()
+        df_topics['topics'] = df_topics['topics'].apply(lambda x: x.replace("' '", "', '"))
+        df_topics['topics'] = df_topics['topics'].apply(ast.literal_eval)
+        df_topics = df_topics.explode('topics')
+        df_topics = df_topics.groupby('topics').agg({
+            'itemID': 'count',
+            'category': lambda x: list(Counter(x).items())
+        }).reset_index()
+        df_topics.columns = ['name', 'item_count', 'categories']
+
+
+        # ranked_items = rank_items(user, items, categories, topics, personalization_preference=0.6)
 
         return Response({
             'users': self.df_users.to_dict(orient='records'),
-            'user': user_dict,
-            'catsActualUser': user_data['cats_actual'],
-            'catsPredUser': user_data['cats_pred'],
-            'catsActualOthers': user_data['cats_actual_others'],
-            'catsPredOthers': user_data['cats_pred_others'],
+            'user': {
+                **user.user_info_dict,
+                **user.user_stat_dict,
+                **user.user_level_measures
+            },
+            'catsActualUser': user.cats_actual,
+            'catsPredUser': user.cats_pred,
+            'catsActualOthers': user.cats_actual_others,
+            'catsPredOthers': user.cats_pred_others,
+            'algoEffs': self.algo_effs,
+            'items': df_items.to_dict(orient='records')
         })
 
     def post(self, request, format=None):
         user_id = int(request.data.get('user_id'))
         if not user_id:
             return Response({"error": "user_id is required"}, status=400)
-
-        user_data = load_user_data(user_id, self.df_users, self.df_user_stat, self.df_actual, 
-                                   self.df_pred, self.user_ids, self.actual_uvs, self.pred_uvs, 
-                                   self.actual_arith_mean_uv, self.pred_arith_mean_uv, self.categories)
-
-        # Compute user-level measures
-        user_level_measures = calc_user_level_measures(user_data['cats_actual'], user_data['cats_pred'], user_data['cats_pred_others'])
-        user_dict = {
-            **user_data['user_info_dict'],
-            **user_data['user_stat_dict'],
-            **user_level_measures
-        }
+        user = self.get_user(user_id)
 
         return Response({
-            'user': user_dict,
-            'catsActualUser': user_data['cats_actual'],
-            'catsPredUser': user_data['cats_pred'],
-            'catsActualOthers': user_data['cats_actual_others'],
-            'catsPredOthers': user_data['cats_pred_others'],
+            'user': {
+                **user.user_info_dict,
+                **user.user_stat_dict,
+                **user.user_level_measures
+            },
+            'catsActualUser': user.cats_actual,
+            'catsPredUser': user.cats_pred,
+            'catsActualOthers': user.cats_actual_others,
+            'catsPredOthers': user.cats_pred_others,
+            'algoEffs': self.algo_effs
         })
+
+    def calc_algo_effs(self):
+        algo_effs_dict = {}
+        for algo_eff in self.algo_eff_list:
+            algo_effs_dict[algo_eff] = {
+                'valueAlignment': 'value',  # value or harm
+                'explanation': self.explanations[algo_eff]['explanation']
+            }
+        return algo_effs_dict
+
+    def get_user(self, user_id):
+        user_idx = np.where(self.user_ids == user_id)[0]
+        user = User(
+            id=user_id,
+            user_info_dict=self.df_users.loc[self.df_users['userID']==user_id].to_dict(orient='records')[0],
+            user_stat_dict=self.df_user_stat.loc[self.df_user_stat['userID']==user_id].to_dict(orient='records')[0],
+            df_actual_user=self.df_actual_all.loc[self.df_actual_all['userID']==user_id],
+            df_pred_user=self.df_pred_all.loc[self.df_pred_all['userID']==user_id],
+            actual_uv=np.round(self.actual_uvs[user_idx].flatten(), 3),
+            pred_uv=np.round(self.pred_uvs[user_idx].flatten(), 3),
+            df_actual_others=self.df_actual_all,
+            df_pred_others=self.df_pred_all,
+            actual_mean_uv=self.actual_arith_mean_uv,
+            pred_mean_uv=self.pred_arith_mean_uv
+        )
+
+        return user
+
     
 
-def load_user_data(
-    user_id, 
-    df_users, 
-    df_user_stat, 
-    df_actual, 
-    df_pred, 
-    user_ids, 
-    actual_uvs, 
-    pred_uvs, 
-    actual_arith_mean_uv, 
-    pred_arith_mean_uv, 
-    categories
-):
-    user_idx = np.where(user_ids == user_id)[0]
-    user_info_dict = df_users.loc[df_users['userID']==user_id].to_dict(orient='records')[0]
-    user_stat_dict = df_user_stat.loc[df_user_stat['userID']==user_id].to_dict(orient='records')[0]
-    df_actual_user = df_actual.loc[df_actual['userID']==user_id]
-    df_pred_user = df_pred.loc[df_pred['userID']==user_id]
-    actual_uv = np.round(actual_uvs[user_idx].flatten(), 3)
-    pred_uv = np.round(pred_uvs[user_idx].flatten(), 3)
-
-    df_actual_others = df_actual
-    df_pred_others = df_pred
-    actual_mean_uv = actual_arith_mean_uv
-    pred_mean_uv = pred_arith_mean_uv
-
-    # Compute category-level measures
-    df_cat_measures = calc_cat_level_measures(
-        user_id, 
-        categories, 
-        actual_uv, 
-        pred_uv, 
-        actual_mean_uv, 
-        pred_mean_uv
-    )
-
-    top_entries_dict = find_top_entries(df_cat_measures, by='separate_score')
-    cat_measures = df_cat_measures.transpose().to_dict(orient='dict')
-    
-    cats_actual = _convert_to_categories(df_actual_user, cat_measures, top_entries_dict)
-    cats_pred = _convert_to_categories(df_pred_user, cat_measures, top_entries_dict)
-    cats_actual_others = _convert_to_categories(df_actual_others, cat_measures, top_entries_dict)
-    cats_pred_others = _convert_to_categories(df_pred_others, cat_measures, top_entries_dict)
-
-    return {
-        'user_info_dict': user_info_dict,
-        'user_stat_dict': user_stat_dict,
-        'df_actual_user': df_actual_user,
-        'df_pred_user': df_pred_user,
-        'actual_uv': actual_uv,
-        'pred_uv': pred_uv,
-        'df_actual_others': df_actual_others,
-        'df_pred_others': df_pred_others,
-        'actual_mean_uv': actual_mean_uv,
-        'pred_mean_uv': pred_mean_uv,
-        'cats_actual': cats_actual,
-        'cats_pred': cats_pred,
-        'cats_actual_others': cats_actual_others,
-        'cats_pred_others': cats_pred_others
-    }
-    
-def calc_cat_level_measures(
-    user_id,
-    categories,
-    actual_uv, 
-    pred_uv, 
-    actual_arith_mean_uv,
-    pred_arith_mean_uv
-):    
-    entry_measure_dict = {}
-    for entry_i, cat in enumerate(categories):
-        entry_name = categories[entry_i]
-        entry_actual = actual_uv[entry_i]
-        entry_pred = pred_uv[entry_i]
-        entry_actual_mean = actual_arith_mean_uv[entry_i]
-        entry_pred_mean = pred_arith_mean_uv[entry_i]
-
-        # print('mean: ', entry_actual_mean_uv, entry_pred_mean_uv)
-        ST = compute_stereotype_for_entry(entry_actual, entry_pred, entry_actual_mean, entry_pred_mean)
-        MC = compute_miscalibration_for_entry(entry_actual, entry_pred)
-        FB = compute_pref_amplification(entry_actual, entry_pred)
-        PB = compute_popularity_lift_for_entry(entry_actual, entry_pred_mean)
-        # PB = 0
-        print('pred_uv: ', entry_name, entry_actual, entry_pred, ST, MC, FB, PB)
-    
-        entry_measure_dict[entry_name] = {
-            'actual': entry_actual,
-            'pred': entry_pred,
-            'miscalibration': float(MC),
-            'filter_bubble': float(FB),
-            'stereotype': float(ST),
-            'popularity_bias': float(PB)
-        }
-
-    df_entry_measures = pd.DataFrame.from_dict(entry_measure_dict).transpose()
-    df_entry_measures_normed = (df_entry_measures - df_entry_measures.min()) / (df_entry_measures.max() - df_entry_measures.min())
-    print(df_entry_measures_normed.to_csv(os.path.join(data_dir, 'df_entry_measures.csv')))
-    df_entry_measures['diversity'] = df_entry_measures_normed[measures['diversity']].mean(axis=1)
-    df_entry_measures['personalization'] = df_entry_measures_normed[measures['personalization']].mean(axis=1)
-    df_entry_measures['bipolar'] = df_entry_measures['diversity'] - df_entry_measures['personalization']
-    
-    return df_entry_measures
-
-def calc_user_level_measures(cats_actual, cats_pred, cats_pred_others):
-    # Major categories are identified based on a user's actual preferences
-    major_cats_in_actual = [ cat for cat in cats_actual if cat['isMajor'] == True ]
-    minor_cats_in_actual = [ cat for cat in cats_actual if cat['isMinor'] == True ]
-    major_cat_names = [ cat['name'] for cat in major_cats_in_actual ]
-    minor_cat_names = [ cat['name'] for cat in minor_cats_in_actual ]
-
-    FB_measures_dict = compute_filter_bubble_for_user(cats_actual, cats_pred, major_cat_names, minor_cat_names)
-    ST_measures_dict = compute_stereotype_for_user(cats_actual, cats_pred, cats_pred_others, major_cat_names, minor_cat_names)
-
-    return {
-        **FB_measures_dict,
-        **ST_measures_dict
-    }
-
-# Find the top and last-k entries
-# Identified based on 
-#     1) combined score (bipolar), 
-#     2) individual scores (diversity and personalization score)
-#  or 3) frequency
-def find_top_entries(df_entry_measures, by='bipolar_score'):
-    by = 'bipolar_score' # 'bipolar' or 'individual'
-    df_bipolar_sorted = df_entry_measures['bipolar'].sort_values(ascending=False)
-    df_diversity_sorted = df_entry_measures['diversity'].sort_values(ascending=False)
-    df_personalization_sorted = df_entry_measures['personalization'].sort_values(ascending=False)
-
-    if by == 'bipolar_score':
-        return {
-            'isTopDiversity': df_bipolar_sorted[:2].index.tolist(),
-            'isTopPersonalization': df_bipolar_sorted[-2:].index.tolist()
-        }
-    else:
-        return {
-            'isTopDiversity': df_diversity_sorted[:2].index.tolist(),
-            'isTopPersonalization': df_personalization_sorted[:2].index.tolist()
-        }
-    
-# Calculate serendipity measure as a filter bubble quantification
-# Serendipity 1/|Q| * sum_all_items_in_Q ( (1-rel_P) * rel_Q )
-# where P and Q are the set of recommended items
-def compute_serendipity_for_entry(entry_actual, entry_pred):
-    return (1 - entry_pred) * entry_actual
 
 # def compute_major_category_dominance
 def compute_pref_amplification(entry_actual, entry_pred):
@@ -240,12 +162,7 @@ def compute_pref_penetration(entry_actual, entry_pred, entry_pred_others):
         dev_from_pred += e
     return  dev_from_actual / dev_from_pred
 
-def compute_miscalibration_for_entry(entry_actual, entry_pred):
-    return np.abs(entry_actual - entry_pred)
 
-def compute_stereotype_for_entry(entry_actual, entry_pred, entry_actual_mean, entry_pred_mean):
-    return (entry_actual_mean - entry_actual) \
-        - (entry_pred_mean - entry_pred)
 
 def compute_popularity_lift_for_entry(entry_actual, entry_pred_mean):
     if entry_actual == 0:
@@ -310,101 +227,108 @@ def compute_stereotype_for_user(cats_actual, cats_pred, cats_pred_others, major_
         'minor_pref_penetration': minor_pref_penetration
     }
 
-def _encode_entries(entries, num_major_cats, num_minor_cats, small_cats_thres):
-    num_entries = len(entries)
-    num_major_cats = 2
-    num_minor_cats = 2
-    small_cats_thres = 0.15
+def compute_miscalibration_for_entry(entry_actual, entry_pred):
+    return np.abs(entry_actual - entry_pred)
 
-    for rank, e_dict in enumerate(entries):
-        entries[rank] = _encode_major_entries(e_dict, rank, num_major_cats)
-        entries[rank] = _encode_minor_entries(e_dict, num_entries, rank, num_minor_cats)
-        entries[rank] = _encode_small_entries(e_dict, small_cats_thres)
-    return entries
+def normalize_score(score, min_val, max_val):
+    return (score - min_val) / (max_val - min_val)
 
-'''
-    Input: entry dict
-    Based on the entry ratio, pick and mark the top-k as major categories
-'''
-def _encode_major_entries(e_dict, rank, num_major_cats):
-    # topics are sorted by its size, so their indices indicate the ranking
-    if rank < num_major_cats:
-        e_dict['isMajor'] = True
-    else:
-        e_dict['isMajor'] = False
+def align_popularity_bias(score):
+    return 1 - (1 / (1 + score))  # Higher score now means more diverse
 
-    return e_dict
+def optimize_weights(personalization_preference):
+    def objective(weights):
+        personalization_score = sum(weights[:2])  # miscalibration and filter_bubble
+        diversity_score = sum(weights[2:])  # popularity_bias and stereotype
+        return abs(personalization_score - personalization_preference) + abs(diversity_score - (1 - personalization_preference))
 
-'''
-    Input: entry dict
-    Based on the entry ratio, pick and mark the last-k as minor categories
-'''
-def _encode_minor_entries(e_dict, num_entries, rank, num_minor_cats):
-    # topics are sorted by its size, so their indices indicate the ranking
-    if rank > num_entries-1-num_minor_cats:
-        e_dict['isMinor'] = True
-    else:
-        e_dict['isMinor'] = False
+    constraints = (
+        {'type': 'eq', 'fun': lambda w: sum(w) - 1},
+        {'type': 'ineq', 'fun': lambda w: w}
+    )
 
-    return e_dict
+    initial_weights = [0.25, 0.25, 0.25, 0.25]
+    result = minimize(objective, initial_weights, method='SLSQP', constraints=constraints)
+    return dict(zip(['miscalibration', 'filter_bubble', 'popularity_bias', 'stereotype'], result.x))
+
+def calculate_item_score(item, user, categories, topics, weights):
+    total_relevance = sum(item.topics.values())
+    if total_relevance == 0:
+        print(f"Warning: Item {item.id} has no topic relevance")
+        return 0  # or some default score
+
+    # Topic-level effects (popularity bias and user preference)
+    popularity_bias_score = 0
+    topic_preference_score = 0
+    for topic_id, relevance in item.topics.items():
+        topic = topics[topic_id]
+        if topic.actual == 0:
+            print(f"Warning: Topic {topic_id} has zero actual probability")
+            pop_bias = 0
+        else:
+            pop_bias = compute_popularity_lift_for_entry(topic.actual, topic.pred)
+        popularity_bias_score += pop_bias * (relevance / total_relevance)
+        
+        topic_pref = user.topic_preferences.get(topic_id, 0.5)
+        topic_preference_score += topic_pref * (relevance / total_relevance)
+
+    # Category-level effects (miscalibration and user preference)
+    miscalibration_score = 0
+    category_preference_score = 0
+    for topic_id, relevance in item.topics.items():
+        topic = topics[topic_id]
+        for cat in categories.values():
+            miscalibration_score = compute_miscalibration_for_entry(cat.actual, cat.pred)
+            category_preference_score = cat.actual
+
+    # User-level effects (stereotype and filter bubble)
+    stereotype_score = compute_stereotype_for_user(
+        [cat.actual for cat in categories.values()],
+        [cat.pred for cat in categories.values()],
+        [0.5] * len(categories),
+        [0.5] * len(categories)
+    )
+    
+    cats_actual = [{'name': cat.name, 'ratio': cat.actual} for cat in categories.values()]
+    cats_pred = [{'name': cat.name, 'ratio': cat.pred} for cat in categories.values()]
+    filter_bubble_score = compute_filter_bubble_for_user(cats_actual, cats_pred, user.major_categories, user.minor_categories)
+    
+    # Normalize and align scores
+    normalized_scores = {
+        'miscalibration': 1 - normalize_score(miscalibration_score, 0, 1),
+        'popularity_bias': align_popularity_bias(normalize_score(popularity_bias_score, 0, 10)),
+        'stereotype': normalize_score(stereotype_score, -1, 1),
+        'filter_bubble': 1 - normalize_score(filter_bubble_score, -5, 5),
+        'topic_preference': normalize_score(topic_preference_score, 0, 1),
+        'category_preference': normalize_score(category_preference_score, 0, 1)
+    }
+    
+    print(f"Normalized scores for item {item.id}: {normalized_scores}")
+    
+    # Compute final score
+    algorithmic_score = sum(weights[effect] * normalized_scores[effect] for effect in weights)
+    preference_score = (normalized_scores['topic_preference'] + normalized_scores['category_preference']) / 2
+    prediction_score = item.pred
+    
+    print(f"Weights: {weights}")
+    print(f"Algorithmic score components for item {item.id}:")
+    for effect in weights:
+        print(f"  {effect}: {weights[effect]} * {normalized_scores[effect]} = {weights[effect] * normalized_scores[effect]}")
+    
+    final_score = 0.6 * algorithmic_score + 0.3 * preference_score + 0.1 * prediction_score
+    print(f"Final score components for item {item.id}: algorithmic={algorithmic_score}, preference={preference_score}, prediction={prediction_score}")
+    
+    return final_score
+
+def rank_items(user, items, categories, topics, personalization_preference=0.5):
+    weights = optimize_weights(personalization_preference)
+    
+    for item in items:
+        item.final_score = calculate_item_score(item, user, categories, topics, weights)
+
+    return sorted(items, key=lambda x: x.final_score, reverse=True)
 
 
-def _encode_small_entries(e_dict, small_cat_thres):
-    # topics are sorted by its size, so their indices indicate the ranking
-    if small_cat_thres != None:
-        e_dict['isSmall'] = True if e_dict['ratio'] < small_cat_thres else False
-
-    return e_dict
 
 
-def _convert_to_categories(df_interactions, entry_measures, top_entries_dict):
-    num_all_items = df_interactions.shape[0]
-    item_info_to_export = ['itemID', 'topics']
-    num_major_cats = 2
-    num_minor_cats = 2
-    small_cats_thres = 0.15
 
-    categories = []
-    for cat, c_items in df_interactions.groupby('category'):
-        c_items = c_items[item_info_to_export]
-        c_items = c_items.dropna()
-        num_items_in_c = c_items.shape[0]
-        # print('num_items_in_c / num_all_items: ', num_items_in_c, num_all_items)
-
-        c_items['topics'] = c_items['topics'].apply(lambda x: x.replace("' '", "', '"))
-        c_items['topics'] = c_items['topics'].apply(ast.literal_eval)
-        c_items = c_items.explode('topics')
-
-        # Group by topics within each category
-        topics = []
-        for topic, num_items_in_c_t in c_items.groupby(['topics']):
-            num_num_items_in_c_t = num_items_in_c_t.shape[0]
-            topics.append({
-                'name': topic[0],
-                'items': num_items_in_c_t.to_dict(orient='records'),
-                'size': num_num_items_in_c_t,
-                'ratio': round(num_num_items_in_c_t / num_items_in_c, 3)
-            })
-
-        # Sort topics by its size and mark ranking
-        topics = sorted(topics, key=lambda x: len(x['items']), reverse=True)
-        topics = _encode_entries(topics, num_major_cats, num_minor_cats, small_cats_thres)
-        # print('major: ', [ t['ratio'] if t['isMajor']==True else None for t in topics ])
-        # print('minor: ', [ t['ratio'] if t['isMinor']==True else None for t in topics ])
-
-        categories.append({
-            'name': cat,
-            'isTopDiversity': True if cat in(top_entries_dict['isTopDiversity']) else False,
-            'isTopPersonalization': True if cat in(top_entries_dict['isTopPersonalization']) else False,
-            'items': c_items.to_dict(orient='records'),
-            'size': num_items_in_c,
-            'ratio': round(num_items_in_c / num_all_items, 15),
-            'topics': topics,
-            'measures': entry_measures[cat]
-        })
-
-    # Sort categories by its size
-    categories = sorted(categories, key=lambda x: x['ratio'], reverse=True)
-    categories = _encode_entries(categories, num_major_cats, num_minor_cats, small_cats_thres)
-
-    return categories

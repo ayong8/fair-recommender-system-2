@@ -36,20 +36,20 @@ const valueLabelFormat = (value) => {
   
 
 const BipolarValueSlider = ({
-	setBipolarColorScale
+	setbipolarColor
 }) => {
 	const handleChange = (e) => {
 		const bipolarValue = e.target.value;
 		if (bipolarValue >= 0)
-			setBipolarColorScale({ 'personalization': c.negative, 'diversity': c.positive });
+			setbipolarColor({ 'personalization': c.negative, 'diversity': c.positive });
 		else if (bipolarValue < 0)
-			setBipolarColorScale({ 'personalization': c.positive, 'diversity': c.negative });
+			setbipolarColor({ 'personalization': c.positive, 'diversity': c.negative });
 		// if (value >= 0)
-		// 	setBipolarColorScale(colorScale => {
+		// 	setbipolarColor(colorScale => {
 		// 		colorScale.range([l.negative, l.positive]);
 		// 	});
 		// else if (value < 0)
-		// 	setBipolarColorScale(colorScale => {
+		// 	setbipolarColor(colorScale => {
 		// 		colorScale.range([l.positive, l.negative]);
 		// 	});
 	}

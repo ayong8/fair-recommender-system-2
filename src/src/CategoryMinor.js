@@ -6,8 +6,9 @@ import _ from 'lodash';
 import styled from 'styled-components';
 
 import Category from './Category';
-import { l, c, CategoryWrapper } from './GlobalStyles';
 import CategoryMinorSmall from './CategoryMinorSmall';
+import TooltipForAlgoEff from './TooltipForAlgoEff';
+import { l, c, minorPrefAmpScale, CategoryOuter } from './GlobalStyles';
 
 const CategoryMinor = ({ 
 	key,
@@ -15,50 +16,26 @@ const CategoryMinor = ({
 	dataType,
 	userType,
 	cat,
+	algoEffs,
 	selectedEntry,
 	setSelectedEntry,
 	showTopicHighlight,
-	bipolarColorScale,
+	bipolarColor,
 	minorPrefMeasure
 }) => {
-	const minorPrefAmpScale = d3.scaleLinear()
-		.domain([2, 0, -2])
-		.range(['red', 'whitesmoke', 'green']);
 
 	return (
-	  <div 
+	  <CategoryOuter 
 	  	className={'minor_category_wrapper'}
-		  style={{ 
-			backgroundColor: minorPrefAmpScale(minorPrefMeasure),
-			position: 'relative', // Keep this
-			paddingRight: '15px' // Add padding to accommodate the icon
-		}}
+		  style={{ backgroundColor: minorPrefAmpScale(minorPrefMeasure) }}
 	  >
-		<Tooltip title="Help information goes here">
-			<HelpOutlineIcon 
-				style={{
-					position: 'absolute',
-					top: '2px',
-					right: '2px',
-					fontSize: '13px',
-					color: '#666',
-					cursor: 'pointer'
-				}}
-			/>
-		</Tooltip>
-		{cat.isSmall ? (
-			<Category
-				key={key}
-				panelID={panelID} 
-				dataType={dataType} 
-				userType={userType} 
-				cat={cat} 
-				selectedEntry={selectedEntry}
-				setSelectedEntry={setSelectedEntry}
-				showTopicHighlight={showTopicHighlight}
-				bipolarColorScale={bipolarColorScale}
-			/>)
-			: (<CategoryMinorSmall
+			{panelID === 'predUser' && (
+				<TooltipForAlgoEff
+					algoEff={algoEffs.filterBubble}
+				/>
+			)}
+			{cat.isSmall ? (
+				<Category
 					key={key}
 					panelID={panelID} 
 					dataType={dataType} 
@@ -67,11 +44,22 @@ const CategoryMinor = ({
 					selectedEntry={selectedEntry}
 					setSelectedEntry={setSelectedEntry}
 					showTopicHighlight={showTopicHighlight}
-					bipolarColorScale={bipolarColorScale}
-			/>)
-		}
-	  </div>
+					bipolarColor={bipolarColor}
+				/>)
+				: (<CategoryMinorSmall
+						key={key}
+						panelID={panelID} 
+						dataType={dataType} 
+						userType={userType} 
+						cat={cat} 
+						selectedEntry={selectedEntry}
+						setSelectedEntry={setSelectedEntry}
+						showTopicHighlight={showTopicHighlight}
+						bipolarColor={bipolarColor}
+				/>)
+			}
+	  </CategoryOuter>
 	);
-  };
+};
 
 export default CategoryMinor;

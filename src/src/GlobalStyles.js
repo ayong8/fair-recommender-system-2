@@ -1,3 +1,4 @@
+import * as d3 from 'd3';
 import styled from "styled-components";
 
 export const l = {
@@ -42,3 +43,27 @@ export const CategoryWrapper = styled.div.attrs({
 	// display: inline-block;
 	// margin-right: 15px;
 `;
+
+export const CategoryOuter = styled.div.attrs({
+  className: 'category_outer'
+})`
+  position: relative;
+  padding-right: 15px;
+`;
+
+// D3 scales
+export const majorPrefAmpScale = d3.scaleLinear()
+  .domain([2, 0, -2])
+  .range(['red', 'whitesmoke', 'green']);
+
+export const minorPrefAmpScale = d3.scaleLinear()
+  .domain([2, 0, -2])
+  .range(['red', 'whitesmoke', 'green']);
+
+export const stereotypeColorScale = d3.scaleLinear()
+  .domain([-1, 0, 1])
+  .range(['#ff9999', '#ffffff', '#99ff99']);
+
+export const fontSizeScale = d3.scaleLinear()
+  .domain([0.01, 0.1, 0.15, 0.5])
+  .range(['8px', '10px', '17px', '17px']);

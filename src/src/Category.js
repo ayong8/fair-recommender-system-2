@@ -4,8 +4,8 @@ import _ from 'lodash';
 import styled from 'styled-components';
 
 import Topic from './Topic';
-import Tooltips from './Tooltips';
-import { l, c, CategoryWrapper } from './GlobalStyles';
+import TooltipForCategory from './TooltipForCategory';
+import { l, c, fontSizeScale, CategoryWrapper } from './GlobalStyles';
 
 const CategoryContentWrapper = styled.div`
   height: 100%;
@@ -49,11 +49,9 @@ const Category = ({
 	selectedEntry, 
 	setSelectedEntry, 
 	showTopicHighlight, 
-	bipolarColorScale 
+	bipolarColor 
 }) => {
 	const [showTopicsForCategory, setShowTopicsForCategory] = useState(false);
-	// const isSmallCategory = cat.ratio <= 0.15;
-	const fontSizeScale = d3.scaleLinear().domain([0.01, 0.1, 0.15, 0.5]).range(['8px', '10px', '17px', '17px']);
 
 	// Helper functions
 	const highlightCategoryBorder = (cat, selectedEntry) => {
@@ -62,13 +60,13 @@ const Category = ({
 		: (cat.isMajor ? '3px solid black' : null);
 	};
   
-	const colorCategory = (cat, bipolarColorScale, panelID) => {
+	const colorCategory = (cat, bipolarColor, panelID) => {
 		if (cat.isTopPersonalization && ['actualUser', 'predUser'].includes(panelID)) {
-		  return bipolarColorScale.personalization;
+		  return bipolarColor.personalization;
 		}
 		
 		if (cat.isTopDiversity && ['predOthers', 'predUser'].includes(panelID)) {
-		  return bipolarColorScale.diversity;
+		  return bipolarColor.diversity;
 		}
 		
 		return c[panelID];
@@ -124,7 +122,7 @@ const Category = ({
 	return (
 		<CategoryWrapper
 			style={{
-				backgroundColor: colorCategory(cat, bipolarColorScale, panelID),
+				backgroundColor: colorCategory(cat, bipolarColor, panelID),
 				height: l.cd.h * 0.8 * cat.ratio,
 				minHeight: '20px',
 				border: highlightCategoryBorder(cat, selectedEntry),
@@ -139,7 +137,7 @@ const Category = ({
 				setSelectedEntry('');
 			}}
 		>
-			<Tooltips
+			<TooltipForCategory
 				cat={cat}
 			/>
 			{showTopicHighlight
@@ -150,6 +148,6 @@ const Category = ({
 			}
 		</CategoryWrapper>
 	);
-  };
+};
 
 export default Category;

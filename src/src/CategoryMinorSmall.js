@@ -4,8 +4,8 @@ import _ from 'lodash';
 import styled from 'styled-components';
 
 import Topic from './Topic';
-import Tooltips from './Tooltips';
-import { l, c } from './GlobalStyles';
+import TooltipForCategory from './TooltipForCategory';
+import { l, c, fontSizeScale } from './GlobalStyles';
 
 const CategoryWrapper = styled.div.attrs({
 	className: 'category_wrapper'
@@ -64,20 +64,18 @@ const CategoryMinorSmall = ({
 	selectedEntry, 
 	setSelectedEntry, 
 	showTopicHighlight, 
-	bipolarColorScale,
+	bipolarColor,
 	minorPrefMeasure
 }) => {
 	const [showTopicsForCategory, setShowTopicsForCategory] = useState(false);
-	// const isSmallCategory = cat.ratio <= 0.15;
-	const fontSizeScale = d3.scaleLinear().domain([0.01, 0.1, 0.15, 0.5]).range(['8px', '10px', '17px', '17px']);
   
-	const colorCategory = (cat, bipolarColorScale, panelID) => {
+	const colorCategory = (cat, bipolarColor, panelID) => {
 		if (cat.isTopPersonalization && ['actualUser', 'predUser'].includes(panelID)) {
-		  return bipolarColorScale.personalization;
+		  return bipolarColor.personalization;
 		}
 		
 		if (cat.isTopDiversity && ['predOthers', 'predUser'].includes(panelID)) {
-		  return bipolarColorScale.diversity;
+		  return bipolarColor.diversity;
 		}
 		
 		return c[panelID];
@@ -127,7 +125,7 @@ const CategoryMinorSmall = ({
 	return (
 	  <CategoryWrapper
 		style={{
-		  backgroundColor: colorCategory(cat, bipolarColorScale, panelID),
+		  backgroundColor: colorCategory(cat, bipolarColor, panelID),
 		  height: l.cd.h * cat.ratio,
 		  minHeight: '20px',
 		  position: 'relative'
@@ -142,7 +140,7 @@ const CategoryMinorSmall = ({
 		  setSelectedEntry('');
 		}}
 	  >
-		<Tooltips
+		<TooltipForCategory
 			cat={cat}
 		/>
 		{showTopicHighlight
@@ -153,6 +151,6 @@ const CategoryMinorSmall = ({
 		}
 	  </CategoryWrapper>
 	);
-  };
+};
 
 export default CategoryMinorSmall;
