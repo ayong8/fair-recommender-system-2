@@ -6,9 +6,9 @@ import _ from 'lodash';
 import styled from 'styled-components';
 
 import Category from './Category';
-import CategoryMinorSmall from './CategoryMinorSmall';
+import CategorySmall from './CategorySmall';
 import TooltipForAlgoEff from './TooltipForAlgoEff';
-import { l, c, minorPrefAmpScale, CategoryOuter } from './GlobalStyles';
+import { l, c, CategoryOuter } from './GlobalStyles';
 
 const CategoryMinor = ({ 
 	key,
@@ -17,11 +17,13 @@ const CategoryMinor = ({
 	userType,
 	cat,
 	algoEffs,
-	selectedEntry,
-	setSelectedEntry,
+	hoveredEntry,
+	setHoveredEntry,
 	showTopicHighlight,
 	bipolarColor,
-	minorPrefMeasure
+	minorPrefMeasure,
+	minorPrefAmpScale,
+	miscalibrationScale
 }) => {
 
 	return (
@@ -31,7 +33,7 @@ const CategoryMinor = ({
 	  >
 			{panelID === 'predUser' && (
 				<TooltipForAlgoEff
-					algoEff={algoEffs.filterBubble}
+					algoEff={algoEffs.stereotype}
 				/>
 			)}
 			{cat.isSmall ? (
@@ -41,21 +43,23 @@ const CategoryMinor = ({
 					dataType={dataType} 
 					userType={userType} 
 					cat={cat} 
-					selectedEntry={selectedEntry}
-					setSelectedEntry={setSelectedEntry}
+					hoveredEntry={hoveredEntry}
+					setHoveredEntry={setHoveredEntry}
 					showTopicHighlight={showTopicHighlight}
 					bipolarColor={bipolarColor}
+					miscalibrationScale={miscalibrationScale}
 				/>)
-				: (<CategoryMinorSmall
+				: (<CategorySmall
 						key={key}
 						panelID={panelID} 
 						dataType={dataType} 
 						userType={userType} 
 						cat={cat} 
-						selectedEntry={selectedEntry}
-						setSelectedEntry={setSelectedEntry}
+						hoveredEntry={hoveredEntry}
+						setHoveredEntry={setHoveredEntry}
 						showTopicHighlight={showTopicHighlight}
 						bipolarColor={bipolarColor}
+						miscalibrationScale={miscalibrationScale}
 				/>)
 			}
 	  </CategoryOuter>

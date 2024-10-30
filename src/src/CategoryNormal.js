@@ -10,11 +10,11 @@ const CategoryNormal = ({
 	dataType,
 	userType,
 	cat,
-	selectedEntry,
-	setSelectedEntry,
+	hoveredEntry,
+	setHoveredEntry,
 	showTopicHighlight,
 	bipolarColor,
-	majorPrefMeasure
+	miscalibrationScale
 }) => {
 
 	return (
@@ -30,10 +30,11 @@ const CategoryNormal = ({
 				dataType={dataType} 
 				userType={userType} 
 				cat={cat} 
-				selectedEntry={selectedEntry}
-				setSelectedEntry={setSelectedEntry}
+				hoveredEntry={hoveredEntry}
+				setHoveredEntry={setHoveredEntry}
 				showTopicHighlight={showTopicHighlight}
 				bipolarColor={bipolarColor}
+				miscalibrationScale={miscalibrationScale}
 			/>
 	  </CategoryOuter>
 	);

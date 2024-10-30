@@ -3,7 +3,6 @@ import styled from 'styled-components';
 import _ from 'lodash';
 
 import { Tooltip } from '@mui/material';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
@@ -15,7 +14,10 @@ import SentimentDissatisfiedIcon from '@mui/icons-material/SentimentDissatisfied
 import SentimentSatisfiedIcon from '@mui/icons-material/SentimentSatisfied';
 import SentimentSatisfiedAltIcon from '@mui/icons-material/SentimentSatisfiedAltOutlined';
 import SentimentVerySatisfiedIcon from '@mui/icons-material/SentimentVerySatisfied';
+import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 
+import { c } from './GlobalStyles';
 import { parseHTML } from './util/util';
 
 const ValuationWrapper = styled.div`
@@ -41,10 +43,12 @@ const TooltipContent = styled.div`
   max-width: 200px;
   padding: 10px;
   box-sizing: border-box;
+	font-family: PT Sans Narrow;
 `;
 
 const TooltipForAlgoEff = ({
-	algoEff
+	algoEff,
+	cat
 }) => {
 	const [parsedExplanation, setParsedExplanation] = useState('');
 
@@ -82,17 +86,31 @@ const TooltipForAlgoEff = ({
 	return (
 		<Tooltip
 			className={'tooltip_stereotype'}
+			// open={true}
+			PopperProps={{
+				sx: {
+					'& .MuiTooltip-tooltip': {
+						backgroundColor: 'rgba(255, 255, 255, 0.95)', // Set the background color with 80% opacity
+						color: 'black', // Ensure text is visible on white background
+						border: '3px solid whitesmoke'
+					},
+					'& .MuiTooltip-arrow': {
+						color: 'rgba(255, 255, 255, 0.8)', // Set the color of the arrow to match the tooltip background with 80% opacity
+						border: '3px solid whitesmoke'
+					},
+				},
+			}}
 			title={
 				<TooltipContent>
-					<div dangerouslySetInnerHTML={{ __html: parsedExplanation }} />
-					<div style={{ marginTop: 10 }}>Valuation</div>
+					<div style={{ fontSize: '0.9rem' }} dangerouslySetInnerHTML={{ __html: parsedExplanation }} />
+					<div style={{ marginTop: 10, fontSize: '0.9rem', fontWeight: 500 }}>How do you value this algorithmic effect?</div>
 					<ValueNameWrapper>
 						<div>Harm</div>
 						<div>Value</div>
 					</ValueNameWrapper>
 					<ValuationWrapper>
 						<IconWrapper>
-							<ThumbDownIcon fontSize="small" style={{ color: 'red' }} />
+							<ThumbDownIcon fontSize="small" style={{ color:c.bipolar.neg }} />
 						</IconWrapper>
 						<StyledRating
 							name="highlight-selected-only"
@@ -102,23 +120,64 @@ const TooltipForAlgoEff = ({
 							highlightSelectedOnly
 						/>
 						<IconWrapper>
-							<ThumbUpIcon fontSize="small" style={{ color: 'green' }} />
+							<ThumbUpIcon fontSize="small" style={{ color: c.bipolar.pos }} />
 						</IconWrapper>
 					</ValuationWrapper>
 				</TooltipContent>
 			}
+			arrow // Ensure the arrow is enabled
 		>
-			<ErrorOutlineIcon 
-				style={{
-					position: 'absolute',
-					top: '2px',
-					right: '2px',
-					fontSize: '13px',
-					color: '#666',
-					cursor: 'pointer',
-					zIndex: 1
-				}}
-			/>
+			{cat ? (
+				cat.isMajorInActual ? (
+					<RadioButtonCheckedIcon 
+						style={{
+							position: 'absolute',
+							top: '2px',
+							right: '1px',
+							fontSize: '15px',
+							color: 'black',
+							cursor: 'pointer',
+							zIndex: 1
+						}}
+					/>
+				) : cat.isMinorInActual ? (
+					<RadioButtonUncheckedIcon 
+						style={{
+							position: 'absolute',
+							top: '2px',
+							right: '2px',
+							fontSize: '13px',
+							color: 'black',
+							cursor: 'pointer',
+							zIndex: 1
+						}}
+					/>
+				) : (
+					<ErrorOutlineIcon 
+						style={{
+							position: 'absolute',
+							top: '2px',
+							right: '2px',
+							fontSize: '13px',
+							color: 'black',
+							cursor: 'pointer',
+							zIndex: 1
+						}}
+					/>
+					)
+			) : (
+				<ErrorOutlineIcon 
+					style={{
+						position: 'absolute',
+						top: '2px',
+						right: '2px',
+						fontSize: '13px',
+						color: 'black',
+						cursor: 'pointer',
+						zIndex: 1
+					}}
+				/>
+			)}
 		</Tooltip>
 	);
 }

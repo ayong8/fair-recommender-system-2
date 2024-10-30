@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import * as d3 from 'd3';
-import { Tooltip, Typography } from '@mui/material';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import _ from 'lodash';
 import styled from 'styled-components';
 
 import Category from './Category';
 import TooltipForAlgoEff from './TooltipForAlgoEff';
-import { l, c, majorPrefAmpScale, CategoryOuter } from './GlobalStyles';
+import { l, c, CategoryOuter } from './GlobalStyles';
 
 const CategoryMajor = ({ 
 	key,
@@ -16,17 +14,19 @@ const CategoryMajor = ({
 	userType,
 	cat,
 	algoEffs,
-	selectedEntry,
-	setSelectedEntry,
+	hoveredEntry,
+	setHoveredEntry,
 	showTopicHighlight,
 	bipolarColor,
-	majorPrefMeasure
+	majorPrefMeasure,
+	majorPrefAmpScale,
+	miscalibrationScale
 }) => {
 
 	return (
 	  <CategoryOuter 
 	  	className={'major_category_wrapper'}
-		style={{ backgroundColor: majorPrefAmpScale(majorPrefMeasure) }}
+			style={{ backgroundColor: majorPrefAmpScale(majorPrefMeasure) }}
 	  >
 			{panelID === 'predUser' && (
 				<TooltipForAlgoEff
@@ -34,18 +34,16 @@ const CategoryMajor = ({
 				/>
 			)}
 			<Category
-				// style={{ backgroundColor: 
-				// 	majorPrefAmpScale(majorPrefMeasure) 
-				// }}
 				key={key}
 				panelID={panelID} 
 				dataType={dataType} 
-				userType={userType} 
+				userType={userType}
 				cat={cat} 
-				selectedEntry={selectedEntry}
-				setSelectedEntry={setSelectedEntry}
+				hoveredEntry={hoveredEntry}
+				setHoveredEntry={setHoveredEntry}
 				showTopicHighlight={showTopicHighlight}
 				bipolarColor={bipolarColor}
+				miscalibrationScale={miscalibrationScale}
 			/>
 	  </CategoryOuter>
 	);

@@ -1,7 +1,9 @@
 .App {
-  width: 500px;
+  width: 1200px;
   font-family: 'PT Sans Narrow';
+  margin: 0 auto;
   padding: 20px;
+  display: flex;
 }
 
 .App-header {

@@ -1,18 +1,20 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { FormGroup, FormControlLabel, Switch } from '@mui/material';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import $ from 'jquery';
 import _ from 'lodash';
 import axios from 'axios';
 import styled from 'styled-components';
-import { l, c } from './GlobalStyles';
+import { l, c, setAlgoEffColorScales } from './GlobalStyles';
 
+import Feed from './Feed';
 import Panel from './Panel';
 import drawPaths from './util/drawPaths';
 import './App.css';
 import SelectUser from './SelectUser';
 import SelectOthers from './SelectOthers';
 import BipolarValueSlider from './BipolarValueSlider';
+import { color } from 'd3';
 
 const MainViewWrapper = styled.div.attrs({
   className: 'main_view_wrapper'
@@ -20,6 +22,7 @@ const MainViewWrapper = styled.div.attrs({
   display: flex;
   width: 1000px;
   height: ${l.cd.h}px;
+  position: relative;
 `;
 
 const Header = styled.div.attrs({
@@ -36,7 +39,7 @@ const WrapperForMe = styled.div.attrs({
 })`
   height: 100%;
   text-align: center;
-  background-color: whitesmoke;
+  background-color: #e7e7e7;
 `;
 
 const WrapperForOthers = styled.div.attrs({
@@ -44,6 +47,7 @@ const WrapperForOthers = styled.div.attrs({
 })`
   height: 100%;
   text-align: center;
+  margin-left: 10px;
 `;
 
 const TitleMe = styled.div.attrs({
@@ -83,6 +87,11 @@ const theme = createTheme({
   },
 });
 
+const initialBipolarColors = { 
+  'personalization': { 'neg': c.bipolar.neg, 'pos': c.bipolar.pos },
+  'diversity': { 'neg': c.bipolar.neg, 'pos': c.bipolar.pos }
+}
+
 function App() {
   const [users, setUsers] = useState([]);
   const [user, setUser] = useState({});
@@ -98,20 +107,16 @@ function App() {
 
   // Add these new state variables
   const [showTopicHighlight, setShowTopicHighlight] = useState(true);
-  const [bipolarColor, setBipolarColor] = useState({ 'personalization': c.negative, 'diversity': c.positive });
+  const [bipolarScore, setBipolarScore] = useState(0.5);
+  const [bipolarColor, setBipolarColor] = useState(initialBipolarColors);
+  const [colorScales, setColorScales] = useState(() => setAlgoEffColorScales(0.5));
+  const [hoveredEntry, setHoveredEntry] = useState({});
   const [selectedEntry, setSelectedEntry] = useState({});
   const [selectedOthers, setSelectedOthers] = useState('all_users');
+  const [switchValuePrefForWant, setSwitchValuePrefForWant] = useState({personalization: false, diversity: false});
+  const [switchValuePrefForNotWant, setSwitchValuePrefForNotWant] = useState({personalization: false, diversity: false});
 
-  // Add this ref
   const ref = useRef(null);
-// if (!catsActualUser || catsActualUser.length == 0)
-//   return <div />  
-
-
-  // // Add this function to handle bipolar color scale changes
-  // const handlebipolarColorChange = (newScale) => {
-  //   setbipolarColor(newScale);
-  // };
 
   // Initial load using GET method
   useEffect(() => {
@@ -127,7 +132,6 @@ function App() {
         setCatsPredOthers(data.catsPredOthers);
         setAlgoEffs(data.algoEffs);
         setItems(data.items);
-        console.log('items: ', data.items)
       } catch (error) {
         console.error('Error loading initial data:', error);
       } finally {
@@ -140,47 +144,59 @@ function App() {
   }, []);
 
   // Update data when selectedUserId changes using POST method
-  // useEffect(() => {
-  //   const updateUserData = async () => {
-  //     if (isInitialLoad.current) return; // Skip if it's the initial load
+  useEffect(() => {
+    const updateUserData = async () => {
+      if (isInitialLoad.current) return; // Skip if it's the initial load
 
-  //     setIsLoading(true);
-  //     try {
-  //       const response = await axios.post('http://localhost:8000/news_rec/loadData/', {
-  //         user_id: selectedUserId
-  //       });
-  //       const data = response.data;
-  //       setUser(data.user);
-  //       setCatsActualUser(data.catsActualUser);
-  //       setCatsPredUser(data.catsPredUser);
-  //       setCatsActualOthers(data.catsActualOthers);
-  //       setCatsPredOthers(data.catsPredOthers);
-  //     } catch (error) {
-  //       console.error('Error updating user data:', error);
-  //     } finally {
-  //       setIsLoading(false);
-  //     }
-  //   };
+      setIsLoading(true);
+      try {
+        const response = await axios.post('http://localhost:8000/news_rec/loadData/', {
+          user_id: selectedUserId
+        });
+        const data = response.data;
+        setUser(data.user);
+        setCatsActualUser(data.catsActualUser);
+        setCatsPredUser(data.catsPredUser);
+        setCatsActualOthers(data.catsActualOthers);
+        setCatsPredOthers(data.catsPredOthers);
+        setAlgoEffs(data.algoEffs);
+        setItems(data.items);
+      } catch (error) {
+        console.error('Error updating user data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  //   updateUserData();
-  // }, [selectedUserId]);
+    updateUserData();
+  }, [selectedUserId]);
 
   // Render lines between categories to represent miscalibration
   useEffect(() => {
     drawPaths(
       $(ref.current), 
       catsActualUser, 
-      catsPredUser);
-  }, [ref.current, catsActualUser]);
+      catsPredUser,
+      colorScales.miscalibrationScale
+    );
+  }, [ref.current, catsActualUser, catsPredUser, bipolarScore]);
 
   if (isLoading) {
     return <div>Loading...</div>;
   }
 
+  console.log('user: ', user)
+
   return (
     <div className="App">
-      <Header>Interactive RS</Header>
       <ThemeProvider theme={theme}>
+      <Feed 
+        selectedEntry={selectedEntry}
+        items={items}
+      />
+      <div style={{ width: 500 }}>
+        <Header>When you are not satisfied with RS</Header>
+        <div></div>
         <div style={{ display: 'flex' }}>
           <SelectUser 
             selectedUserId={selectedUserId}
@@ -200,22 +216,35 @@ function App() {
           </FormGroup>
         </div>
         <BipolarValueSlider 
-          setbipolarColor={setBipolarColor}
+          bipolarScore={bipolarScore}
+          switchValuePrefForWant={switchValuePrefForWant}
+          switchValuePrefForNotWant={switchValuePrefForNotWant}
+          setBipolarScore={setBipolarScore}
+          setBipolarColor={setBipolarColor}
+          setColorScales={setColorScales}
+          setSwitchValuePrefForWant={setSwitchValuePrefForWant}
+          setSwitchValuePrefForNotWant={setSwitchValuePrefForNotWant}
         />
+        <div style={{ fontSize: '1.2rem', marginTop: 20, marginBottom: 2.5 }}>How does the algorithm favor your value?</div>
         <MainViewWrapper>
           <WrapperForMe>
             <TitleMe>Me</TitleMe>
+            <div>Algorithm boosted/not my preferences to recommendation.</div>
             <WrapperForMyCategory>
               <Panel 
                 panelID={'actualUser'}
                 dataType={'Preferred'} 
                 userType={'user'}
                 user={user}
+                algoEffs={algoEffs}
                 majorPrefMeasure={user.major_pref_amp}
                 minorPrefMeasure={user.minor_pref_deamp}
-                cats={catsActualUser} 
+                colorScales={colorScales}
+                cats={catsActualUser}
                 selectedEntry={selectedEntry}
+                hoveredEntry={hoveredEntry}
                 setSelectedEntry={setSelectedEntry}
+                setHoveredEntry={setHoveredEntry}
                 showTopicHighlight={showTopicHighlight}
                 bipolarColor={bipolarColor}
               />
@@ -227,9 +256,12 @@ function App() {
                 algoEffs={algoEffs}
                 majorPrefMeasure={user.major_pref_amp}
                 minorPrefMeasure={user.minor_pref_deamp}
+                colorScales={colorScales}
                 cats={catsPredUser}
                 selectedEntry={selectedEntry}
+                hoveredEntry={hoveredEntry}
                 setSelectedEntry={setSelectedEntry}
+                setHoveredEntry={setHoveredEntry}
                 showTopicHighlight={showTopicHighlight}
                 bipolarColor={bipolarColor}
               />
@@ -238,8 +270,8 @@ function App() {
           <WrapperForOthers>
             {/* Dropdown menu for selecting others */}
             <SelectOthers 
-	            selectedOthers={selectedOthers}
-	            setSelectedOthers={setSelectedOthers}
+              selectedOthers={selectedOthers}
+              setSelectedOthers={setSelectedOthers}
             />
             <WrapperForOthersCategory>
               {/* <CategoryDist dataType={'Preference'} cats={userCatsActual} /> */}
@@ -250,15 +282,18 @@ function App() {
                 user={user}
                 majorPrefMeasure={user.major_pref_amp}
                 minorPrefMeasure={user.minor_pref_deamp}
+                colorScales={colorScales}
                 cats={catsPredOthers}
                 selectedEntry={selectedEntry}
+                hoveredEntry={hoveredEntry}
                 setSelectedEntry={setSelectedEntry}
+                setHoveredEntry={setHoveredEntry}
                 showTopicHighlight={showTopicHighlight}
                 bipolarColor={bipolarColor}
               />
             </WrapperForOthersCategory>
           </WrapperForOthers>
-          <div id="svgContainer">
+          <div id="svgContainer" style={{ position: 'absolute', top: 100, left: 100 }}>
             <svg 
               id="svg1"
               ref={ref} 
@@ -267,6 +302,7 @@ function App() {
             />
           </div>
         </MainViewWrapper>
+      </div>
       </ThemeProvider>
     </div>
   );

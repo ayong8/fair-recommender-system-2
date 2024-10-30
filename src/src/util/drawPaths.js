@@ -1,9 +1,10 @@
 import $ from 'jquery';
 import _ from 'lodash';
+import * as d3 from 'd3'
 
 // Reference: https://jsfiddle.net/bbcfk164/
 // https://gist.github.com/alojzije/11127839
-const drawPaths = (svg, catsActualUser, catsPredUser) => {
+const drawPaths = (svg, catsActualUser, catsPredUser, miscalibrationScale) => {
     const commonCatsWithinMe = _.intersectionBy(catsActualUser, catsPredUser, 'name');
 
     //helper functions, it turned out chrome doesn't support Math.sgn() 
@@ -14,7 +15,7 @@ const drawPaths = (svg, catsActualUser, catsPredUser) => {
         return (x < 0) ? -x : x;
     }
 
-    function drawPath(svg, path, startX, startY, endX, endY) {
+    function drawPath(svg, cat, path, startX, startY, endX, endY) {
         // get the path's stroke width (if one wanted to be really precize, one could use half the stroke size)
         var stroke =  parseFloat(path.attr('stroke-width'));
         // check if the svg is big enough to draw the path, if not, set heigh/width
@@ -35,14 +36,6 @@ const drawPaths = (svg, catsActualUser, catsPredUser) => {
             arc1 = 1;
             arc2 = 0;
         }
-        // draw tha pipe-like path
-        // 1. move a bit down, 2. arch,  3. move a bit to the right, 4.arch, 5. move down to the end 
-        // path.attr('d',  'M'  + startX + ' ' + startY +
-        //                 ' H' + (startX + delta) +
-        //                 ' A' + delta + ' ' +  delta + ' 0 0 ' + arc2 + ' ' + (startX + 2*delta) + ' ' + (startY + delta*signum(deltaY)) +
-        //                 ' V' + (endY - delta*signum(deltaY)) + 
-        //                 ' A' + delta + ' ' +  delta + ' 0 0 ' + arc1 + ' ' + (startX + 3*delta) + ' ' + endY +
-        //                 ' H' + endX );
 
         // Calculate control points for the Bézier curve
         var midX = (startX + endX) / 2;
@@ -57,27 +50,12 @@ const drawPaths = (svg, catsActualUser, catsPredUser) => {
                     `C${controlPoint1X},${controlPoint1Y} ` +
                     `${controlPoint2X},${controlPoint2Y} ` +
                     `${endX},${endY}`);
-        path.attr('stroke', 'black');
-        path.attr('stroke-width', 2);
+        path.attr('stroke', d3.color(miscalibrationScale(cat.measures.miscalibration)).darker(1));
+        path.attr('stroke-width', 6);
         svg.append(path);
-
-        //   $(newPath).attr({
-    //     id: `path-from-actual-to-pred-user-${cat.name}`,
-    //     // d: 'M10 10 L90 90',
-    //     // stroke: 'black',
-    //     // 'stroke-width': 2,
-    //     fill: 'none'
-    //   });
-
-        // path.attr("d",  "M"  + startX + " " + startY +
-        //                 " V" + (startY + delta) +
-        //                 " A" + delta + " " +  delta + " 0 0 " + arc1 + " " + (startX + delta*signum(deltaX)) + " " + (startY + 2*delta) +
-        //                 " H" + (endX - delta*signum(deltaX)) + 
-        //                 " A" + delta + " " +  delta + " 0 0 " + arc2 + " " + endX + " " + (startY + 3*delta) +
-        //                 " V" + endY );
     }
 
-    function connectElements(svg, path, startElem, endElem) {
+    function connectElements(svg, cat, path, startElem, endElem) {
         var svgContainer= $('#svgContainer');
 
         // if first element is lower than the second, swap!
@@ -105,20 +83,19 @@ const drawPaths = (svg, catsActualUser, catsPredUser) => {
         var endY = endCoord.top + 0.5*endElem.outerHeight() - svgTop;
 
         // call function for drawing the path
-        drawPath(svg, path, startX, startY, endX, endY);
+        drawPath(svg, cat, path, startX, startY, endX, endY);
     }
 
     function connectAll(svg, commonCatsWithinMe) {
         commonCatsWithinMe.forEach(cat => {
-            console.log('catName: ', cat.name)
             const newPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             $(newPath).attr({
                 id: `path-from-actual-to-pred-user-${cat.name}`,
-                stroke: 'black',
-                'stroke-width': 2,
+                stroke: 'none',
+                'stroke-width': 0,
                 fill: 'none'
             });
-            connectElements(svg, $(newPath), $('.actualUser' + `.${cat.name}`),   $('.predUser' + `.${cat.name}`));
+            connectElements(svg, cat, $(newPath), $('.actualUser' + `.${cat.name}`),   $('.predUser' + `.${cat.name}`));
         });
     }
 
