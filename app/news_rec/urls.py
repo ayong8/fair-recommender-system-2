@@ -7,4 +7,16 @@ urlpatterns = [
         view=views.LoadData.as_view(),
         name='load_data'
     ),
+    path('updatePreferences/',
+        view=views.UpdatePreferences.as_view(),
+        name='update_preferences'
+    ),
+    path('updateBipolarValueAlignment/',
+        view=views.UpdateBipolarValueAlignment.as_view(),
+        name='update_bipolar_value_alignment'
+    ),
+    path('updateValueAlignment/',
+        view=views.UpdateValueAlignment.as_view(),
+        name='update_value_alignment'
+    ),
 ]

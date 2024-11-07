@@ -1,5 +1,13 @@
 import * as d3 from 'd3';
 import styled from "styled-components";
+import { styled as muiStyled } from '@mui/material/styles';
+import Rating from '@mui/material/Rating';
+
+import SentimentVeryDissatisfiedIcon from '@mui/icons-material/SentimentVeryDissatisfied';
+import SentimentDissatisfiedIcon from '@mui/icons-material/SentimentDissatisfied';
+import SentimentSatisfiedIcon from '@mui/icons-material/SentimentSatisfied';
+import SentimentSatisfiedAltIcon from '@mui/icons-material/SentimentSatisfiedAltOutlined';
+import SentimentVerySatisfiedIcon from '@mui/icons-material/SentimentVerySatisfied';
 
 export const l = {
   // cd: CategoryDist
@@ -38,8 +46,8 @@ export const CategoryWrapper = styled.div.attrs({
 	border-radius: 5px;
 	text-align: center;
 	font-size: 0.8rem;
-	overflow-y: scroll;
-  position: relative;
+	overflow: auto;
+  // position: relative;
 `;
 
 export const CategoryOuter = styled.div.attrs({
@@ -50,6 +58,30 @@ export const CategoryOuter = styled.div.attrs({
   border: 1px solid white;
   border-radius: 7px;
 `;
+
+export const StyledRating = muiStyled(Rating)(({ theme }) => ({
+  '& .MuiRating-iconEmpty .MuiSvgIcon-root': {
+    color: theme.palette.action.disabled,
+  },
+}));
+
+export const algoEffRatingIcons = {
+  1: { icon: <SentimentVeryDissatisfiedIcon color="error" />, 
+       label: 'Very Dissatisfied',
+       valueAlignment: 'harm' },
+  2: { icon: <SentimentDissatisfiedIcon color="error" />,
+       label: 'Dissatisfied', 
+       valueAlignment: 'harm' },
+  3: { icon: <SentimentSatisfiedIcon color="warning" />,
+       label: 'Neutral',
+       valueAlignment: 'neutral' },
+  4: { icon: <SentimentSatisfiedAltIcon color="success" />,
+       label: 'Satisfied', 
+       valueAlignment: 'value' },
+  5: { icon: <SentimentVerySatisfiedIcon color="success" />,
+       label: 'Very Satisfied',
+       valueAlignment: 'value' },
+};
 
 // D3 scales
 export const bipolarValueScale = d3.scaleLinear()
@@ -70,7 +102,7 @@ export const bipolarValueScale = d3.scaleLinear()
 
 export const fontSizeScale = d3.scaleLinear()
   .domain([0.01, 0.1, 0.15, 0.5])
-  .range(['8px', '10px', '17px', '17px']);
+  .range(['9px', '15px', '18px', '20px']);
 
 
 export const setAlgoEffColorScales = (bipolarScore) => {
@@ -91,9 +123,49 @@ export const setAlgoEffColorScales = (bipolarScore) => {
   }
 }
 
-// Dynamic styling
 export const highlightCategoryBorder = (cat, hoveredEntry, selectedEntry) => {
   return ((hoveredEntry.name === cat.name) || (selectedEntry.name === cat.name))
   ? '3px solid blue' 
-  : (cat.isMajorInActual ? '3px solid black' : null);
+  : (cat.isMajorInActual ? null : null);
+};
+
+export const getCategoryOuterClassName = (cat) => {
+  return cat.isMajorInActual
+  ? 'major_category_wrapper'
+  : (cat.isMinorInActual 
+    ? 'minor_category_wrapper'
+    : 'normal_category_wrapper');
+}
+
+export const getCategoryOuterStyle = (cat, colorScales, majorPrefMeasure, minorPrefMeasure) => {
+  return cat.isMajorInActual
+  ? { backgroundColor: colorScales.majorPrefAmpScale(majorPrefMeasure) }
+  : (cat.isMinorInActual 
+    ? { backgroundColor: colorScales.minorPrefAmpScale(minorPrefMeasure) }
+    : { border: 'none' });
+}
+
+export const getPredPanelStyles = (panelID, colorScales, stereotype) => {
+  return ((panelID === 'predUser') || (panelID === 'predOthers')) ? {
+    backgroundColor: colorScales.stereotypeColorScale(stereotype),
+    position: 'relative',
+    paddingRight: '15px'
+  } : { paddingRight: '25px' };
+}
+
+export const tooltipStyles = {
+    className: 'tooltip_stereotype',
+    PopperProps: {
+        sx: {
+            '& .MuiTooltip-tooltip': {
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                color: 'black',
+                border: '3px solid whitesmoke'
+            },
+            '& .MuiTooltip-arrow': {
+                color: 'rgba(255, 255, 255, 0.8)',
+                border: '3px solid whitesmoke'
+            },
+        },
+    }
 };

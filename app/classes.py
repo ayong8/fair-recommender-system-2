@@ -11,7 +11,7 @@ import util
 class User:
     def __init__(self, id, user_info_dict, user_stat_dict, df_actual_user, df_pred_user, 
                  actual_uv, pred_uv, df_actual_others, df_pred_others, 
-                 actual_mean_uv, pred_mean_uv):
+                 actual_mean_uv, pred_mean_uv, explanations):
         self.id = id
         self.user_info_dict = user_info_dict
         self.user_stat_dict = user_stat_dict
@@ -23,10 +23,17 @@ class User:
         self.df_pred_others = df_pred_others
         self.actual_mean_uv = actual_mean_uv
         self.pred_mean_uv = pred_mean_uv
+        self.explanations = explanations
 
         # All algorithms
-        self.algo_effs = ['miscalibration', 'filter_bubble', 'popularity_bias', 'stereotype']
-        self.algo_eff_weights = {algo_eff: 0.25 for algo_eff in self.algo_effs}
+        self.algo_eff_list = ['miscalibration', 'filterBubble', 'popularityBias', 'stereotype']
+        self._algo_effs = None
+        self.algo_eff_weights = {algo_eff: 0.25 for algo_eff in self.algo_eff_list}
+        self.algo_eff_value_alignment = {
+            algo_eff: self.algo_effs[algo_eff]['valueAlignment'] # initialize this as 'neutral'
+            for algo_eff in self.algo_eff_list
+        }
+        self.personalization_preference = 0.5
 
         # Category-level variables
         self.categories = []
@@ -49,13 +56,32 @@ class User:
         self.minor_category_names = []
         self.user_level_measures = []
 
+    @property
+    def algo_effs(self):
+        if self._algo_effs is None:
+            self._algo_effs = self.calc_algo_effs()
+        return self._algo_effs
+    
+    def calc_algo_effs(self):
+        algo_effs_dict = {}
+        for algo_eff in self.algo_eff_list:
+            algo_effs_dict[algo_eff] = {
+                'weight': 0.25,
+                'perceivedValueScore': None, # None or float
+                'valueAlignment': 'neutral',  # value or neutral or harm
+                'explanation': self.explanations[util.to_camel_case(algo_eff)]['explanation']
+            }
+        return algo_effs_dict
+
     def get_all_user_categories(self, categories):
         measures = {
-            'diversity': ['stereotype', 'popularity_bias'],
-            'personalization': ['miscalibration', 'filter_bubble']
+            'diversity': ['stereotype', 'popularityBias'],
+            'personalization': ['miscalibration', 'filterBubble']
         }
 
         entry_measure_dict = {}
+        print('categoriesssss: ', categories)
+        print('self.pred_uv: ', self.pred_uv)
         for entry_i, cat in enumerate(categories):
             entry_name = categories[entry_i]
             entry_measure_dict[entry_name] = self.calc_cat_measures(
@@ -117,8 +143,8 @@ class User:
             categories.append({
                 'id': cat_idx,
                 'name': cat,
-                'isTopDiversity': True if cat in(top_entries_dict['isTopDiversity']) else False,
-                'isTopPersonalization': True if cat in(top_entries_dict['isTopPersonalization']) else False,
+                # 'isTopDiversity': True if cat in(top_entries_dict['isTopDiversity']) else False,
+                # 'isTopPersonalization': True if cat in(top_entries_dict['isTopPersonalization']) else False,
                 'items': c_items.to_dict(orient='records'),
                 'topics': topics,
                 'measures': entry_measures[cat],
@@ -143,9 +169,11 @@ class User:
     def get_items(self, df_user_data):
         df_items = df_user_data.copy()
         df_items.loc[:,'final_score'] = df_items['score']
+        df_items.loc[:, 'change'] = 'no change'
         
         df_items.loc[:,'topics'] = df_items['topics'].apply(lambda x: x.replace("' '", "', '"))
-        df_items.loc[:,'topics'] = df_items['topics'].apply(lambda x: ast.literal_eval(x))        
+        df_items.loc[:,'topics'] = df_items['topics'].apply(lambda x: ast.literal_eval(x))    
+            
         df_items = df_items.fillna(0)
         # df_items.to_csv(os.path.join(data_dir, 'df_items.csv'))
 
@@ -165,30 +193,40 @@ class User:
         return df_topics
     
     def rank_items(self, personalization_preference=0.5):
-        self.algo_eff_weights = optimize_weights(self.algo_eff_weights, personalization_preference)
-        print('algorithmic effect weights: ', self.algo_eff_weights)
+        # Create a copy of the original DataFrame
+        df_updated_items_pred = self.df_items_pred.copy()
         
-        self.df_items_pred['final_score'] = self.df_items_pred.apply(
-            lambda item: self.calculate_item_score(item), axis=1
-        )
-        self.df_items_pred = self.df_items_pred.sort_values(by='final_score', ascending=False)
-
-        return self.df_items_pred, self.algo_eff_weights
+        # Optimize weights and update scores
+        self.algo_eff_weights = optimize_weights(self.algo_eff_weights, self.algo_eff_value_alignment, personalization_preference)
+        print('algorithmic effect weights: ', self.algo_eff_weights)
+        print('algorithmic effect value alignment: ', self.algo_eff_value_alignment)
+        
+        print("final score before: ", self.df_items_pred['final_score'].values)
+        df_updated_items_pred['final_score'] = self.df_items_pred.apply(
+            lambda item: self.calculate_item_score(item), axis=1)
+        print("final score after: ", df_updated_items_pred['final_score'].values)
+        
+        # Sort both DataFrames by final_score
+        df_updated_items_pred = df_updated_items_pred.sort_values(
+            by='final_score', 
+            ascending=False
+        ).reset_index(drop=True)
+        
+        return df_updated_items_pred, self.algo_eff_weights
     
     def calc_cat_measures(self, entry_actual, entry_pred, entry_actual_mean, entry_pred_mean):
             ST = compute_stereotype_for_entry(entry_actual, entry_pred, entry_actual_mean, entry_pred_mean)
             MC = compute_miscalibration_for_entry(entry_actual, entry_pred)
             FB = compute_pref_amplification(entry_actual, entry_pred)
             PB = compute_popularity_lift_for_entry(entry_actual, entry_pred_mean)
-            print('measures: ', ST, MC, FB, PB)
 
             return {
                 'actual': entry_actual,
                 'pred': entry_pred,
                 'miscalibration': float(MC),
-                'filter_bubble': float(FB),
+                'filterBubble': float(FB),
                 'stereotype': float(ST),
-                'popularity_bias': float(PB)
+                'popularityBias': float(PB)
             }
     
     def calculate_item_score(self, item):
@@ -199,30 +237,28 @@ class User:
 
         # Topic-level effects (popularity bias and user preference)
         popularity_bias_score = 0
-        topic_preference_score = 0
+        topic_preference_scores = []
         for _, topic in self.df_topics_pred.iterrows():
             pred_score = topic['score']
             actual_topic = self.df_topics_actual[self.df_topics_actual['name'] == topic['name']]
             actual_score = actual_topic['score'].values[0] if not actual_topic.empty else 0
             pop_bias = 0 if actual_score == 0 else compute_popularity_lift_for_entry(actual_score, pred_score)
-            
             popularity_bias_score += pop_bias * (pred_score / total_relevance)
-            
-            topic_pref = self.topic_preferences_on_pred[topic['name']]
-            topic_preference_score += topic_pref * (pred_score / total_relevance)
+            topic_preference_scores.append(self.topic_preferences_on_pred[topic['name']])
+            if topic['name'] == 'City life':
+                print('toppppppic: ', self.topic_preferences_on_pred[topic['name']])
+        mean_topic_preference_score = np.mean(topic_preference_scores)
 
         # Category-level effects (miscalibration and user preference)
         item_cat_name = item['category']
         cat_actual = next((cat for cat in self.cats_actual if cat['name'] == item_cat_name), None)
         cat_pred = next((cat for cat in self.cats_pred if cat['name'] == item_cat_name), None)
         if cat_actual:
-            print("cat_actual['ratio'], cat_pred['ratio']: ", cat_actual['ratio'], cat_pred['ratio'])
             miscalibration_score = compute_miscalibration_for_entry(cat_actual['ratio'], cat_pred['ratio'])
         else:
             print(f"Warning: Category {cat_pred['name']} not found in cats_actual")
             miscalibration_score = 0
         category_preference_score = self.category_preferences_on_pred[item_cat_name]
-        print('category_preference_score: ', item_cat_name, miscalibration_score, category_preference_score)
 
         # User-level effects (stereotype and filter bubble)
         stereotype_score = compute_stereotype_for_user(
@@ -232,19 +268,17 @@ class User:
             [0.5] * len(self.cats_pred)
         )
 
-        # cats_actual = [{'name': cat['name'], 'ratio': cat['actual']} for cat in categories.values()]
-        # cats_pred = [{'name': cat['name'], 'ratio': cat['pred']} for cat in categories.values()]
         FB_measures_dict = self.compute_filter_bubble_for_user(self.major_category_names, self.minor_category_names)
-        filter_bubble_score = FB_measures_dict['filter_bubble']
+        filter_bubble_score = FB_measures_dict['filterBubble']
 
         # Normalize and align scores
         normalized_scores = {
             'miscalibration': 1 - normalize_score(miscalibration_score, 0, 1),
-            'popularity_bias': align_popularity_bias(normalize_score(popularity_bias_score, 0, 10)),
+            'popularityBias': align_popularity_bias(normalize_score(popularity_bias_score, 0, 10)),
             'stereotype': normalize_score(stereotype_score, -1, 1),
-            'filter_bubble': 1 - normalize_score(filter_bubble_score, -5, 5),
-            'topic_preference': normalize_score(topic_preference_score, 0, 1),
-            'category_preference': normalize_score(category_preference_score, 0, 1)
+            'filterBubble': 1 - normalize_score(filter_bubble_score, -5, 5),
+            'topic_preference': mean_topic_preference_score,
+            'category_preference': category_preference_score
         }
         
         # Compute final score
@@ -258,6 +292,10 @@ class User:
         
         final_score = 0.6 * algorithmic_score + 0.3 * preference_score + 0.1 * prediction_score
         print(f"Final score components for item {item['itemID']}: algorithmic={algorithmic_score}, preference={preference_score}, prediction={prediction_score}")
+
+        if item['itemID'] == 9777492:
+            print('mean_topic_preference_score: ', mean_topic_preference_score, final_score)
+            print('pppreference_score: ', preference_score, final_score)
         
         return final_score
 
@@ -267,8 +305,6 @@ class User:
         minor_cats_in_actual = [cat for cat in self.cats_actual if cat['isMinor'] == True]
         major_cat_names = [cat['name'] for cat in major_cats_in_actual]
         minor_cat_names = [cat['name'] for cat in minor_cats_in_actual]
-
-        print('major_cat_names, minor_cat_names: ', major_cat_names, minor_cat_names)
 
         FB_measures_dict = self.compute_filter_bubble_for_user(major_cat_names, minor_cat_names)
         ST_measures_dict = self.compute_stereotype_for_user()
@@ -287,24 +323,17 @@ class User:
                 self.topic_preferences_on_pred[topic_name] /= total_pref
         else:
             print("Warning: Unable to compute meaningful topic preferences.")
-            equal_pref = 1.0 / len(df_topics) # Assign equal preferences if we can't compute meaningful preferences
+            equal_pref = 1.0 / len(df_topics)
             self.topic_preferences_on_pred = {topic_name: equal_pref for topic_name in df_topics['name']}
 
         return self.topic_preferences_on_pred
 
-    def compute_filter_bubble_for_user(self, major_cat_names, minor_cat_names):
-        print('self.cats_actual: ', [ cat['name'] for cat in self.cats_actual ])
-        print('self.cats_pred: ', [ cat['name'] for cat in self.cats_pred ])
-        print('major_cat_names: ', major_cat_names)
-        print('minor_cat_names: ', minor_cat_names)
-        
+    def compute_filter_bubble_for_user(self, major_cat_names, minor_cat_names):        
         # Compute major preference amplification
         major_pref_amps = []
         for cat_name in major_cat_names:
-            print('cat_name: ', cat_name)
             entry_actual = next((cat['ratio'] for cat in self.cats_actual if cat['name'] == cat_name), 0)
             entry_pred = next((cat['ratio'] for cat in self.cats_pred if cat['name'] == cat_name), 0)
-            print('fb: ', entry_actual, entry_pred)
             major_pref_amps.append(compute_pref_amplification(entry_actual, entry_pred))
         
         # Compute major preference deamplification
@@ -320,7 +349,7 @@ class User:
         filter_bubble = major_pref_amp + minor_pref_deamp
         
         return {
-            'filter_bubble': filter_bubble, 
+            'filterBubble': filter_bubble, 
             'major_pref_amp': major_pref_amp, 
             'minor_pref_deamp': minor_pref_deamp
         }
@@ -342,9 +371,9 @@ class User:
         :param new_preference: New preference value (between 0 and 1)
         """
         if preference_type == 'topic':
-            self.topic_preferences[id] = new_preference
+            self.topic_preferences_on_pred[id] = new_preference
         elif preference_type == 'category':
-            self.category_preferences[id] = new_preference
+            self.category_preferences_on_pred[id] = new_preference
         else:
             raise ValueError("preference_type must be 'topic' or 'category'")
 
@@ -552,7 +581,7 @@ def compute_pref_amplification(entry_actual, entry_pred):
         entry_pred += 0.0001
     return np.log(entry_pred / entry_actual)
 
-def optimize_weights(algo_eff_weights, personalization_preference):
+def optimize_weights(algo_eff_weights, algo_eff_value_alignment, personalization_preference):
     algo_effs = list(algo_eff_weights.keys())
     algo_weights = list(algo_eff_weights.values())
 
@@ -565,20 +594,29 @@ def optimize_weights(algo_eff_weights, personalization_preference):
                abs(diversity_score - (1 - personalization_preference)) + \
                weight_diff
 
-    constraints = (
-        {'type': 'eq', 'fun': lambda w: sum(w) - 1},
-        {'type': 'ineq', 'fun': lambda w: w}
-    )
+    # Base constraints
+    constraints = [
+        {'type': 'eq', 'fun': lambda w: sum(w) - 1},  # weights sum to 1
+        {'type': 'ineq', 'fun': lambda w: w}  # all weights non-negative
+    ]
+    
+    # Add value alignment constraints
+    for i, effect in enumerate(algo_effs):
+        alignment = algo_eff_value_alignment[effect]
+        if alignment == 'harm':
+            # For harmful effects, weight should be less than 0.25
+            constraints.append({
+                'type': 'ineq',
+                'fun': lambda w, idx=i: 0.075 - w[idx]
+            })
+        elif alignment == 'value':
+            # For valuable effects, weight should be greater than 0.25
+            constraints.append({
+                'type': 'ineq',
+                'fun': lambda w, idx=i: w[idx] - 0.35
+            })
 
     result = minimize(objective, algo_weights, method='SLSQP', constraints=constraints)
     return dict(zip(algo_effs, result.x))
-
-# def rank_items(user, items, categories, topics, personalization_preference=0.5):
-#     weights = optimize_weights(personalization_preference)
-    
-#     for item in items:
-#         item.final_score = calculate_item_score(item, user, categories, topics, weights)
-
-#     return sorted(items, key=lambda x: x.final_score, reverse=True)
 
 

@@ -38,10 +38,24 @@ const Feed = ({
 										gutterBottom 
 										sx={{ 
 											textTransform: 'uppercase', 
-											fontSize: '0.8rem' 
+											fontSize: '0.8rem',
+											display: 'flex',
+											justifyContent: 'space-between'
 										}}
 									>
-										{item.category} - {item.final_score.toFixed(2)}
+										<span>
+											{item.category} - {item.final_score.toFixed(2)}
+										</span>
+										<span
+											style={{
+												fontWeight: 'bold',
+												color: item.change === 'increased' ? 'red' : item.change === 'decreased' ? 'blue' : 'inherit'
+											}}
+										>
+											{item.change === 'increased' && '↑'}
+											{item.change === 'decreased' && '↓'}
+											{item.change === 'no change' && '→'}
+										</span>
 									</Typography>
 									<Typography variant="h6" sx={{ lineHeight: 1.2 }} gutterBottom>{item.title}</Typography>
 									<Stack 

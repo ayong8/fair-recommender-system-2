@@ -1,21 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { scaleLinear } from 'd3-scale';
+import axios from 'axios';
 
 import Category from './Category';
 import CategorySmall from './CategorySmall';
-import CategoryMajor from './CategoryMajor';
-import CategoryMinor from './CategoryMinor';
-import CategoryNormal from './CategoryNormal';
+import TooltipForCategories from './TooltipForCategories';
 import TooltipForAlgoEff from './TooltipForAlgoEff';
-import TooltipForCategory from './TooltipForCategory';
-import { CategoryOuter } from './GlobalStyles';
+import { CategoryOuter, getCategoryOuterClassName, getCategoryOuterStyle, getPredPanelStyles } from './GlobalStyles';
 
 const PanelWrapper = styled.div.attrs({
   className: 'panel_wrapper'
 })`
 	width: 100%;
-	height: 85%;
+	height: 100%;
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
@@ -36,16 +34,11 @@ const PanelTitle = styled.div.attrs({
 const CategoryListWrapper = styled.div.attrs({
 	className: 'category_list_wrapper'
   })`
-  height: 100%;
+  // height: 100%;
 	overflow-y: scroll;
 	position: relative;
 	// margin: 0 -10px;
   `;
-
-// const CategoryWrapper = styled.div`
-//   padding: 2px;
-//   margin: 0 -10px;
-// `;
 
 const Panel = ({
 	panelID,
@@ -63,41 +56,14 @@ const Panel = ({
 	setHoveredEntry,
 	showTopicHighlight,
 	bipolarColor,
-	explanations
+	explanations,	
+	categoryPreferencesOnPred,
+	setCategoryPreferencesOnPred,
+  topicPreferencesOnPred,
+  setTopicPreferencesOnPred,
+	handleSetCatRatioChange,
+	handleAlgoEffValueAlignment
 }) => {
-	const [expandedCategories, setExpandedCategories] = useState(() => {
-    return cats.reduce((acc, cat) => ({
-        ...acc,
-        [cat.name]: 1
-    }), {});
-	});
-
-    // Log expandedCategories whenever it changes
-    useEffect(() => {
-        console.log('Expanded Factors:', expandedCategories);
-    }, [expandedCategories]);
-
-	const predPanelForStyles = ((panelID === 'predUser') || (panelID === 'predOthers')) ? {
-		backgroundColor: colorScales.stereotypeColorScale(user.stereotype),
-		position: 'relative',
-		paddingRight: '15px'
-	} : { paddingRight: '25px' };
-
-	const getCategoryOuterClassName = (cat) => {
-		return cat.isMajorInActual
-		? 'major_category_wrapper'
-		: (cat.isMinorInActual 
-			? 'minor_category_wrapper'
-			: 'normal_category_wrapper');
-	}
-
-	const getCategoryOuterStyle = (cat) => {
-		return cat.isMajorInActual
-		? { backgroundColor: colorScales.majorPrefAmpScale(majorPrefMeasure) }
-		: (cat.isMinorInActual 
-			? { backgroundColor: colorScales.minorPrefAmpScale(minorPrefMeasure) }
-			: {});
-	}
 
 	return (
 		<PanelWrapper>
@@ -106,26 +72,32 @@ const Panel = ({
 		>{dataType}</PanelTitle>
 		<CategoryListWrapper 
 			style={{ 
-				width: dataType == 'Recommended' ?  '90%' : '82.5%',
-				...predPanelForStyles,
+				width: dataType == 'Recommended' ? '90%' : '82.5%',
+				...(((panelID === 'predUser') || (panelID === 'predOthers')) ? {
+					backgroundColor: colorScales.stereotypeColorScale(user.stereotype),
+					position: 'relative',
+					paddingRight: '15px'
+				} : { paddingRight: '25px' })
 			}}
 		>
 			{(panelID === 'predUser') && (
-				<TooltipForAlgoEff
+				<TooltipForCategories
 					algoEff={algoEffs.stereotype}
+					onValueAlignmentChange={handleAlgoEffValueAlignment}
 				/>
 			)}
 			{cats.map((cat) => {
-
+				// console.log('algoEffs.filterBubble: ', algoEffs.filterBubble)
 				return !cat.isSmall ? (
 					<CategoryOuter 
 						className={getCategoryOuterClassName(cat)}
-						style={getCategoryOuterStyle(cat)}
+						style={getCategoryOuterStyle(cat, colorScales, majorPrefMeasure, minorPrefMeasure)}
 					>
-						{((panelID === 'actualUser') || (panelID == 'predUser')) && ((cat.isMajorInActual || cat.isMinorInActual)) && (
+						{((cat.isMajorInActual || cat.isMinorInActual)) && (
 							<TooltipForAlgoEff
 								algoEff={algoEffs.filterBubble}
 								cat={cat}
+								onValueAlignmentChange={handleAlgoEffValueAlignment}
 							/>
 						)}
 						<Category
@@ -141,19 +113,18 @@ const Panel = ({
 							showTopicHighlight={showTopicHighlight}
 							bipolarColor={bipolarColor}
 							miscalibrationScale={colorScales.miscalibrationScale}
-							expandedCategories={expandedCategories}
-        			setExpandedCategories={setExpandedCategories}
-							expandedFactor={expandedCategories[cat.name] || 1}
+							handleSetCatRatioChange={handleSetCatRatioChange}
 						/>
 					</CategoryOuter>
 					)
 					: (<CategoryOuter 
 						className={'small_category_wrapper'}
-						style={getCategoryOuterStyle(cat)}
+						style={getCategoryOuterStyle(cat, colorScales, majorPrefMeasure, minorPrefMeasure)}
 					>
-						{(panelID === 'predUser' && (cat.isMajorInActual || cat.isMinorInActual)) && (
+						{((cat.isMajorInActual || cat.isMinorInActual)) && (
 							<TooltipForAlgoEff
 								algoEff={algoEffs.filterBubble}
+								cat={cat}
 							/>
 						)}
 						<CategorySmall
@@ -169,9 +140,7 @@ const Panel = ({
 							showTopicHighlight={showTopicHighlight}
 							bipolarColor={bipolarColor}
 							miscalibrationScale={colorScales.miscalibrationScale}
-							expandedCategories={expandedCategories}
-        			setExpandedCategories={setExpandedCategories}
-							expandedFactor={expandedCategories[cat.name] || 1}
+							handleSetCatRatioChange={handleSetCatRatioChange}
 						/>
 					</CategoryOuter>)
 			})}

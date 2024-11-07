@@ -91,6 +91,7 @@ const drawPaths = (svg, catsActualUser, catsPredUser, miscalibrationScale) => {
             const newPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             $(newPath).attr({
                 id: `path-from-actual-to-pred-user-${cat.name}`,
+                class: 'path',
                 stroke: 'none',
                 'stroke-width': 0,
                 fill: 'none'

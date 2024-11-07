@@ -10,6 +10,7 @@ import PropTypes from 'prop-types';
 
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import AdjustIcon from '@mui/icons-material/Adjust';
+import CircleOutlined from '@mui/icons-material/Circle';
 
 import { c, algoEffRatingIcons, StyledRating } from './GlobalStyles';
 import { parseHTML } from './util/util';
@@ -40,8 +41,7 @@ const TooltipContent = styled.div`
 	font-family: PT Sans Narrow;
 `;
 
-const TooltipForAlgoEff = ({ 
-	cat, 
+const TooltipForCategories = ({ 
 	algoEff, 
 	onValueAlignmentChange 
 }) => {
@@ -103,41 +103,34 @@ const TooltipForAlgoEff = ({
 	);
 
 	const renderIcon = () => {
-		if (!cat) return <></>;
-		
-		if (cat.isMajorInActual) {
-			return (
-				<RadioButtonCheckedIcon 
-					style={{
+		return (
+			<Box sx={{ position: 'absolute', right: 0, width: 15, height: 15 }}>
+				<CircleOutlined 
+					sx={{ 
 						position: 'absolute',
-						top: '2px',
-						right: '1px',
-						fontSize: '13px',
-						color: 'black',
-						cursor: 'pointer',
-						zIndex: 1
-					}}
+						left: 2,
+						top: 1, 
+						color: 'blue',
+						fontSize: 12,
+						fill: 'white',
+						strokeWidth: 2,
+						stroke: 'black'
+					}} 
 				/>
-			);
-		}
-		
-		if (cat.isMinorInActual) {
-			return (
-				<AdjustIcon 
-					style={{
+				<CircleOutlined 
+					sx={{ 
 						position: 'absolute',
-						top: '2px',
-						right: '2px',
-						fontSize: '13px',
-						color: 'black',
-						cursor: 'pointer',
-						zIndex: 1
-					}}
+						left: 0,
+						top: 3,
+						color: 'white',
+						fontSize: 12,
+						fill: 'white',
+						strokeWidth: 2,
+						stroke: 'black'
+					}} 
 				/>
-			);
-		}
-		
-		return <></>;
+			</Box>
+		);
 	};
 
 	return (
@@ -165,10 +158,10 @@ const TooltipForAlgoEff = ({
 	);
 }
 
-TooltipForAlgoEff.propTypes = {
-	cat: PropTypes.object,
-	algoEff: PropTypes.object,
-	onValueAlignmentChange: PropTypes.func
-};
+// TooltipForCategories.propTypes = {
+// 	cat: PropTypes.object,
+// 	algoEff: PropTypes.object,
+// 	onValueAlignmentChange: PropTypes.func
+// };
 
-export default TooltipForAlgoEff;
+export default TooltipForCategories;

@@ -1,12 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Tooltip, Typography } from '@mui/material';
-import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
-  
+import CircleIcon from '@mui/icons-material/Circle';
 import _ from 'lodash';
 
-const TooltipForCategory = ({
-	cat
-}) => {
+const TooltipForCategory = ({ cat }) => {
 	const renderMeasures = () => {
 		return Object.entries(cat.measures).map(([name, value], index) => (
 			<div key={index}>{name}: {_.round(value, 2)}</div>
@@ -24,14 +21,19 @@ const TooltipForCategory = ({
 		  arrow 
 		  placement="top"
 		>
-		  <MoreHorizIcon 
-			style={{
-			  position: 'absolute',
-			  top: '2px',
-			  right: '2px',
-			  fontSize: '14px',
-			  color: 'rgba(0, 0, 0, 0.5)',
-			}}
+		  <CircleIcon 
+				style={{
+					position: 'absolute',
+					left: '-7px',
+					top: '50%',
+					transform: 'translateY(-50%)',
+					fontSize: '14px',
+					color: 'rgba(0, 0, 0, 0.5)',
+					zIndex: 1000,
+					fill: 'white',
+					stroke: 'black',
+    				strokeWidth: 2
+				}}
 		  />
 		</Tooltip>
 	);

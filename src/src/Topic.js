@@ -10,37 +10,39 @@ const TopicWrapper = styled.div.attrs({
 })`
   	// width: 100px;
 	height: 15px;
+	cursor: pointer;
 	background-color: lightpink;
 	border: 1.5px solid white;
 	border-radius: 2px;
 	padding: 2px;
 	margin: 0.5px 1.5px;
-	pointer-events: none;
+	pointer-events: auto;
 	line-height: initial;
 	float: left;
 `;
 
 const SmallTopicWrapper = styled.div.attrs({
 	className: 'small_topic_wrapper'
-  })`
-	  width: 10px;
-	  height: 8px;
-	  background-color: lightpink;
-	  border: 1.5px solid white;
-	  border-radius: 2px;
-	  padding: 1px;
-	  margin: 0.5px 1.5px;
-	  pointer-events: none;
-	  line-height: initial;
-	  float: left;
-  `;
+})`
+	width: 10px;
+	height: 8px;
+	background-color: lightpink;
+	border: 1.5px solid white;
+	border-radius: 2px;
+	padding: 1px;
+	margin: 0.5px 1.5px;
+	pointer-events: none;
+	line-height: initial;
+	float: left;
+`;
 
 const Topic = ({
-  	topic,
+  topic,
 	cat,
-	isSmallCategory
+	isSmallCategory,
+	selectedEntry,
+	setSelectedEntry
 }) => {
-	// console.log('topic div: ', $('.category_wrapper.' + cat.name).height())
 	const parentDiv = $('.category_wrapper.' + cat.name).height();
 	const heightFromRatio = parentDiv * topic.ratio - 50;
 	const topicDivHeight = l.cd.minH < heightFromRatio ? heightFromRatio : l.cd.minH;
@@ -48,30 +50,23 @@ const Topic = ({
 	if (!isSmallCategory) 
 		return (<TopicWrapper
 				style={{
-					backgroundColor: '#b4b2b2', // c[panelID],
+					backgroundColor: '#b4b2b2',
 					color: 'white'
-					// height: topicDivHeight, 
-					// lineHeight: topic.ratio*10
 				}}
-				// data-cat={JSON.stringify(topic)}
 				className={ topic.name }
-				// onMouseOver={handleMouseOverCategory}
-				// onMouseOut={handleMouseOutCategory}
+				onClick={(e) => {
+					setSelectedEntry(selectedEntry.name === topic.name ? {} : topic);
+				}}
 			>{topic.name}
 			</TopicWrapper>
 		);
 	else
 		return (<SmallTopicWrapper
 			style={{
-				backgroundColor: '#b4b2b2', // c[panelID],
+				backgroundColor: '#b4b2b2',
 				color: 'white'
-				// height: topicDivHeight, 
-				// lineHeight: topic.ratio*10
 			}}
-			// data-cat={JSON.stringify(topic)}
 			className={ topic.name }
-			// onMouseOver={handleMouseOverCategory}
-			// onMouseOut={handleMouseOutCategory}
 			/>
 		);
 }

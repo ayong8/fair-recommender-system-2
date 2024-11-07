@@ -215,10 +215,24 @@ FIXTURE_DIRS = (str(APPS_DIR / "fixtures"),)
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#session-cookie-httponly
 SESSION_COOKIE_HTTPONLY = True
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_COOKIE_AGE = 86400  # Session length in seconds (24 hours)
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_CACHE_ALIAS = 'default' 
 # https://docs.djangoproject.com/en/dev/ref/settings/#csrf-cookie-httponly
 CSRF_COOKIE_HTTPONLY = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#x-frame-options
 X_FRAME_OPTIONS = "DENY"
+
+CACHES = {
+    'default': {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",
+        "OPTIONS": {
+              "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        }
+     }
+}
 
 # EMAIL
 # ------------------------------------------------------------------------------
@@ -288,3 +302,7 @@ SOCIALACCOUNT_FORMS = {"signup": "app.users.forms.UserSocialSignupForm"}
 # Your stuff...
 # ------------------------------------------------------------------------------
 CORS_ORIGIN_ALLOW_ALL = True
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:3000",  # Your React frontend URL
+# ]
+CORS_ALLOW_CREDENTIALS = True

@@ -32,36 +32,25 @@ const marks = [
 
 const BipolarValueSlider = ({
 	bipolarScore,
-  switchValuePrefForWant,
-  switchValuePrefForNotWant,
-	setBipolarScore,
+  switchValuePrefForMe,
+  switchValuePrefForOthers,
+	handleBipolarScoreChange,
 	setBipolarColor,
 	setColorScales,
-  setSwitchValuePrefForWant,
-  setSwitchValuePrefForNotWant
+  setSwitchValuePrefForMe,
+  setSwitchValuePrefForOthers
 }) => {
   const bipolarValue = bipolarScore >= 0.5 ? 'diversity' : 'personalization';
 
-	const handleChange = (event, newBipolarScore) => {
-		setBipolarScore(newBipolarScore);
-		setColorScales(setAlgoEffColorScales(newBipolarScore));
-
-    if (newBipolarScore >= 0.5) {
-      setBipolarColor({ 'personalization': c.bipolar.neg, 'diversity': c.bipolar.pos });
-    } else if (newBipolarScore < 0.5) {
-      setBipolarColor({ 'personalization': c.bipolar.pos, 'diversity': c.bipolar.neg });
-    }
-	}
-
 	const handleSwitchChangeForWant = (event) => {
-		setSwitchValuePrefForWant(prevState => ({
+		setSwitchValuePrefForMe(prevState => ({
 			...prevState,
 			[bipolarValue]: event.target.checked
 		}));
 	}
 
 	const handleSwitchChangeForNotWant = (event) => {
-		setSwitchValuePrefForNotWant(prevState => ({
+		setSwitchValuePrefForOthers(prevState => ({
 			...prevState,
 			[bipolarValue]: event.target.checked
 		}));
@@ -70,35 +59,35 @@ const BipolarValueSlider = ({
   const textForBipolarValue = {
     personalization: {
       overall: (
-          <>"I prefer to see what I'm interested in."</>
+          <>"I prefer to see more personalized news <span style={{ fontWeight: 600, fontStyle: 'italic' }}>based on</span> my interest."</>
       ),
       specific: {
         want: (
-            <>I want to see more news personalized
-              <br />
-              toward my interaction history.</>
+            <>I prefer to see more news that is personalized
+          <br />
+            based on my interaction history.</>
         ),
         notWant: (
-            <>I don't want to see news outside of
+            <>I prefer to ignore news that comes from 
               <br />
-              toward my interaction history.</>
+              other users' preferences.</>
         )
       }
     },
     diversity: {
       overall: (
-          <>"I prefer to see what others are interested in."</>
+          <>"I prefer to see more diverse news <span style={{ fontWeight: 600, fontStyle: 'italic' }}>outside of</span> my interest."</>
       ),
       specific: {
         want: (
-            <>I want to see more news outside of
-              <br />
-              toward my interaction history.</>
+            <>I don't want the algorithm to personalize news
+            <br />
+             solely based on my interaction history.</>
         ),
         notWant: (
-            <>I don't want to see news solely within
+            <>I am open to seeing news that comes from
               <br />
-              my interaction history.</>
+              other users' preferences.</>
         )
       }
     }
@@ -106,12 +95,25 @@ const BipolarValueSlider = ({
 
   const valuationLabelFormat = (value) => {
     return (
-      <div style={{ lineHeight: 1, margin: 3 }} onMouseDown={(e) => e.stopPropagation()}>
-        <div style={{ fontSize: '1rem' }}>{textForBipolarValue[bipolarValue].overall}</div>
+      <div
+        style={{ lineHeight: 1, margin: 3 }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div style={{ fontSize: '1rem' }}>
+          {textForBipolarValue[bipolarValue].overall}
+        </div>
         <br />
-        <div style={{ display: 'flex', alignItems: 'flex-start', textAlign: 'left', marginBottom: 5 }}>
+        <div style={{ textAlign: 'left', paddingBottom: 3 }}>What is your detalied preference on {bipolarValue}?</div>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            textAlign: 'left',
+            marginBottom: 5,
+          }}
+        >
           <Switch
-            checked={switchValuePrefForWant[bipolarValue]}
+            checked={switchValuePrefForMe[bipolarValue]}
             onChange={handleSwitchChangeForWant}
             size="small"
             sx={{
@@ -125,9 +127,15 @@ const BipolarValueSlider = ({
             {textForBipolarValue[bipolarValue].specific.want}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-start', textAlign: 'left' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            textAlign: 'left',
+          }}
+        >
           <Switch
-            checked={switchValuePrefForNotWant[bipolarValue]}
+            checked={switchValuePrefForOthers[bipolarValue]}
             onChange={handleSwitchChangeForNotWant}
             size="small"
             sx={{
@@ -158,11 +166,11 @@ const BipolarValueSlider = ({
 		const baseColor = 'rgb(211, 211, 211)'; // light gray
 		const greenColor = 'rgb(0, 128, 0)'; // green
 		const leftColor = bipolarScore <= 0.5 
-			? `rgba(0, 128, 0, ${1 - 2 * bipolarScore})` 
-			: 'rgba(0, 128, 0, 0)';
+			? `rgba(100, 100, 100, ${1 - 2 * bipolarScore})` 
+			: 'rgba(100, 100, 100, 0)';
 		const rightColor = bipolarScore >= 0.5 
-			? `rgba(0, 128, 0, ${2 * bipolarScore - 1})` 
-			: 'rgba(0, 128, 0, 0)';
+			? `rgba(100, 100, 100, ${2 * bipolarScore - 1})` 
+			: 'rgba(100, 100, 100, 0)';
 		return `linear-gradient(to right, ${leftColor}, ${baseColor} 50%, ${rightColor})`;
 	}, [bipolarScore]);
 
@@ -214,7 +222,7 @@ const BipolarValueSlider = ({
         }}
         aria-label="Always visible"
         value={bipolarScore}
-        onChange={handleChange}
+        onChange={handleBipolarScoreChange}
         step={0.1}
         min={0} 
         max={1}

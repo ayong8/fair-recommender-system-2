@@ -7,7 +7,7 @@ export const parseHTML = (html) => {
 export const adjustCategorySize = (delta, expandedFactor, setExpandedCategories, cat) => {
     setExpandedCategories(prev => {
         const currentFactor = expandedFactor || 0;
-        const newFactor = currentFactor + delta * 15; // Allow negative values
+        const newFactor = currentFactor + delta * 0.15;
         const changeInFactor = newFactor - currentFactor;
         const otherCategories = Object.keys(prev).filter(name => name !== cat.name);
         const adjustmentPerCategory = changeInFactor / otherCategories.length;

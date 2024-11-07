@@ -1,8 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import * as d3 from 'd3';
 import _ from 'lodash';
 import styled from 'styled-components';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import Typography from '@mui/material/Typography';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 import Topic from './Topic';
 import TooltipForCategory from './TooltipForCategory';
@@ -104,11 +109,11 @@ const Category = ({
 	showTopicHighlight, 
 	bipolarColor,
 	miscalibrationScale,
-	expandedCategories,
-	setExpandedCategories,
-	expandedFactor = 1
+	handleSetCatRatioChange
 }) => {
 	const [showTopicsForCategory, setShowTopicsForCategory] = useState(false);
+	const [isAccordionExpanded, setIsAccordionExpanded] = useState(false); // State to track accordion expansion
+	const accordionRef = useRef(null); // Create a ref for the accordion
 
 	const colorCategory = (cat, bipolarColor, miscalibrationScale, panelID) => {
 		return miscalibrationScale(cat.measures.miscalibration);
@@ -121,6 +126,9 @@ const Category = ({
 				topic={topic}
 				cat={cat}
 				key={topic.name}
+				isSmallCategory={cat.isSmall}
+				selectedEntry={selectedEntry}
+				setSelectedEntry={setSelectedEntry}
 		  />
 		))
 	);
@@ -134,19 +142,23 @@ const Category = ({
 		<CategoryName 
 			style={{ fontSize: fontSizeScale(cat.ratio) }}
 		>
-          {_.capitalize(cat.name)}
-        </CategoryName>
-        <TopicsContainer 
+			{_.capitalize(cat.name)}
+		</CategoryName>
+		<TopicsContainer 
 			isSmallCategory={cat.isSmall}
 		>
-		  {cat.topics.slice(0, 2).map(topic => (
-			<Topic 
-			  topic={topic}
-			  cat={cat}
-			  isSmallCategory={cat.isSmall}
-			  key={topic.name}
-			/>
+		<div style={{ position: 'absolute', left: 0, bottom: 0, zIndex: 100, width: '80%' }}>
+		  {!isAccordionExpanded && cat.topics.slice(0, 2).map(topic => (
+				<Topic 
+					topic={topic}
+					cat={cat}
+					key={topic.name}
+					isSmallCategory={cat.isSmall}
+					selectedEntry={selectedEntry}
+					setSelectedEntry={setSelectedEntry}
+				/>
 		  ))}
+		</div>
 		</TopicsContainer>
 	  </CategoryContentWrapper>
 	);
@@ -161,19 +173,29 @@ const Category = ({
 		</CategoryOnlyWrapper>
 	  );
 
-	const handleResize = (delta, e) => {
-		e.stopPropagation(); // Prevent category selection when clicking buttons
-		adjustCategorySize(delta, expandedFactor, setExpandedCategories, cat);
-	};
+	useEffect(() => {
+		const handleClickOutside = (event) => {
+			if (accordionRef.current && !accordionRef.current.contains(event.target)) {
+				setIsAccordionExpanded(false);
+			}
+		};
+
+		document.addEventListener('click', handleClickOutside);
+
+		return () => {
+			document.removeEventListener('click', handleClickOutside);
+		};
+	}, []);
 
 	return (
 		<CategoryWrapper
 			style={{
 				width: panelID == 'predUser' ? '120px' : '100px',
-				height: l.cd.h * 0.8 * cat.ratio + expandedFactor, // Add expandedFactor
+				height: l.cd.h * 0.8 * cat.ratio,
 				minHeight: '20px',
 				backgroundColor: panelID == 'predOthers' ? c[panelID] : colorCategory(cat, bipolarColor, miscalibrationScale, panelID),
 				border: highlightCategoryBorder(cat, hoveredEntry, selectedEntry),
+				position: 'relative'
 			}}
 			className={`${panelID} ${cat.name} group relative`}
 			onMouseOver={() => {
@@ -184,31 +206,84 @@ const Category = ({
 				setShowTopicsForCategory(false);
 				setHoveredEntry('');
 			}}
-			onClick={() => {
-				console.log('cat: ', panelID, cat);
-				setSelectedEntry(selectedEntry.name === cat.name ? {} : cat);
+			onClick={(e) => {
+				if (!accordionRef.current || !accordionRef.current.contains(e.target)) {
+					setSelectedEntry(selectedEntry.name === cat.name ? {} : cat);
+				}
 			}}
 		>
-			<TooltipForCategory
-				cat={cat}
-			/>
-			{showTopicHighlight
-			? (showTopicsForCategory ? 
-				renderAllTopicsOnMouseover(cat) 
-				: renderCategoryWithTopTopics(cat))
-			: renderCategoryOnly(cat)
+			{(panelID == 'predUser') && (<TooltipForCategory
+					cat={cat}
+				/>)
 			}
+			{showTopicHighlight
+				? renderCategoryWithTopTopics(cat)
+				: renderCategoryOnly(cat)
+			}
+			<Accordion
+				ref={accordionRef}
+				className="accordion-container"
+				sx={{
+					width: '100%',
+					position: 'absolute',
+					bottom: 0,
+					zIndex: 99,
+					background: 'linear-gradient(to top, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0))', // Gradient from white to transparent
+					'&.MuiAccordion-root': {
+						margin: 0, // Remove margin from the accordion
+						'&::before': {
+							display: 'none', // Remove the ::before pseudo-element
+						},
+					},
+					'& .MuiAccordionSummary-root': {
+						minHeight: '10px !important',
+						padding: 0,
+					},
+					'& .MuiAccordionSummary-content': {
+						margin: 0, // Ensure no margin in the summary content
+					},
+				}}
+				expanded={isAccordionExpanded}
+				onChange={() => setIsAccordionExpanded(!isAccordionExpanded)}
+			>
+				<AccordionSummary
+					expandIcon={<ExpandMoreIcon />}
+					aria-controls="panel1a-content"
+					id="panel1a-header"
+				>
+					{/* You can add a title or leave it empty */}
+				</AccordionSummary>
+				<AccordionDetails
+					sx={{
+						maxHeight: `calc(${l.cd.h * 0.8 * cat.ratio}px / 2)`, // Calculate half of the CategoryWrapper height
+						overflowY: 'auto',
+						padding: 0,
+						margin: 0,
+						background: 'linear-gradient(to top, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0))',
+					}}
+					onClick={(e) => {
+						// e.stopPropagation();
+						if (!e.target.closest('.topic_wrapper')) {
+							setIsAccordionExpanded(false);
+						}
+					}}
+				>
+					{showTopicHighlight
+						? renderAllTopicsOnMouseover(cat)
+						: renderCategoryOnly(cat)
+					}
+				</AccordionDetails>
+			</Accordion>
+			{/* arrows */}
 			<ResizeControls>
 				<ResizeButton
-					onClick={(e) => handleResize(1, e)}  // Change by +15px
-					disabled={expandedFactor >= 45}  // Adjust max limit
+					onClick={(e) => handleSetCatRatioChange(cat.name, 1, e)}
 				>
 					<ChevronDown size={16} />
 				</ResizeButton>
 				<Divider />
 				<ResizeButton
-					onClick={(e) => handleResize(-1, e)}  // Change by -15px
-					disabled={expandedFactor <= -45}
+					onClick={(e) => handleSetCatRatioChange(cat.name, -1, e)}
 				>
 					<ChevronUp size={16} />
 				</ResizeButton>

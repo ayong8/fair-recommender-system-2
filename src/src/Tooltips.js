@@ -33,26 +33,21 @@ const IconWrapper = styled.div`
   align-items: center;
 `;
 
-const TooltipContent = styled.div`
+const TooltipContentWrapper = styled.div`
   max-width: 200px;
   padding: 10px;
   box-sizing: border-box;
 	font-family: PT Sans Narrow;
 `;
 
-const TooltipForAlgoEff = ({ 
-	cat, 
-	algoEff, 
-	onValueAlignmentChange 
-}) => {
+export const Tooltips = ({ cat, algoEff, onValueAlignmentChange }) => {
 	const [parsedExplanation, setParsedExplanation] = useState('');
 	const [ratingValue, setRatingValue] = useState(3);
-
+	  
 	useEffect(() => {
-		if (algoEff?.explanation?.[algoEff?.valueAlignment]) {
+		if (algoEff?.explanation && algoEff.valueAlignment) {
 			const parsedHTML = parseHTML(algoEff.explanation[algoEff.valueAlignment]);
-			console.log('parsedHTML: ', parsedHTML)
-			setParsedExplanation(parsedHTML?.innerHTML || '');
+			setParsedExplanation(parsedHTML.innerHTML);
 
 			const initialRating = Object.keys(algoEffRatingIcons).find(key => 
 				algoEffRatingIcons[key].valueAlignment === algoEff.valueAlignment
@@ -67,6 +62,8 @@ const TooltipForAlgoEff = ({
 
 		if (algoEff.valueAlignment !== newAlignment) {
 			onValueAlignmentChange('filterBubble', newAlignment);
+		} else {
+			console.log('No change in value alignment');
 		}
 	};
 
@@ -76,74 +73,35 @@ const TooltipForAlgoEff = ({
 	};
 
 	const tooltipContent = (
-		<TooltipContent>
-			<div style={{ fontSize: '0.9rem' }} dangerouslySetInnerHTML={{ __html: parsedExplanation || '' }} />
-			<div style={{ marginTop: 10, fontSize: '0.9rem', fontWeight: 500 }}>How do you value this algorithmic effect?</div>
-			<ValueNameWrapper>
-				<div>Harm</div>
-				<div>Value</div>
-			</ValueNameWrapper>
-			<ValuationWrapper>
-				<IconWrapper>
-					<ThumbDownIcon fontSize="small" style={{ color:c.bipolar.neg }} />
-				</IconWrapper>
-				<StyledRating
-					name="highlight-selected-only"
-					value={ratingValue}
-					onChange={handleValueAlignmentChange}
-					IconContainerComponent={iconContainer}
-					getLabelText={(value) => algoEffRatingIcons[value].label}
-					highlightSelectedOnly
-				/>
-				<IconWrapper>
-					<ThumbUpIcon fontSize="small" style={{ color: c.bipolar.pos }} />
-				</IconWrapper>
-			</ValuationWrapper>
-		</TooltipContent>
-	);
-
-	const renderIcon = () => {
-		if (!cat) return <></>;
-		
-		if (cat.isMajorInActual) {
-			return (
-				<RadioButtonCheckedIcon 
-					style={{
-						position: 'absolute',
-						top: '2px',
-						right: '1px',
-						fontSize: '13px',
-						color: 'black',
-						cursor: 'pointer',
-						zIndex: 1
-					}}
-				/>
-			);
-		}
-		
-		if (cat.isMinorInActual) {
-			return (
-				<AdjustIcon 
-					style={{
-						position: 'absolute',
-						top: '2px',
-						right: '2px',
-						fontSize: '13px',
-						color: 'black',
-						cursor: 'pointer',
-						zIndex: 1
-					}}
-				/>
-			);
-		}
-		
-		return <></>;
-	};
+		<TooltipContentWrapper>
+      <div style={{ fontSize: '0.9rem' }} dangerouslySetInnerHTML={{ __html: parsedExplanation }} />
+      <div style={{ marginTop: 10, fontSize: '0.9rem', fontWeight: 500 }}>How do you value this algorithmic effect?</div>
+      <ValueNameWrapper>
+        <div>Harm</div>
+        <div>Value</div>
+      </ValueNameWrapper>
+      <ValuationWrapper>
+        <IconWrapper>
+          <ThumbDownIcon fontSize="small" style={{ color:c.bipolar.neg }} />
+        </IconWrapper>
+        <StyledRating
+          name="highlight-selected-only"
+          value={ratingValue}
+          onChange={onValueAlignmentChange}
+          IconContainerComponent={iconContainer}
+          getLabelText={(value) => algoEffRatingIcons[value].label}
+          highlightSelectedOnly
+        />
+        <IconWrapper>
+          <ThumbUpIcon fontSize="small" style={{ color: c.bipolar.pos }} />
+        </IconWrapper>
+      </ValuationWrapper>
+    </TooltipContentWrapper>
+	)
 
 	return (
 		<Tooltip
-			className={'tooltip_stereotype'}
-			// open={true}
+			className={'tooltip_algo_eff'}
 			PopperProps={{
 				sx: {
 					'& .MuiTooltip-tooltip': {
@@ -157,18 +115,42 @@ const TooltipForAlgoEff = ({
 					},
 				},
 			}}
-			title={tooltipContent}
-			arrow 
+			title={
+				tooltipContent
+			}
+			arrow
 		>
-			{renderIcon()}
+			{/* {cat ? (
+				cat.isMajorInActual ? (
+					<RadioButtonCheckedIcon 
+						style={{
+							position: 'absolute',
+							top: '2px',
+							right: '1px',
+							fontSize: '13px',
+							color: 'black',
+							cursor: 'pointer',
+							zIndex: 1
+						}}
+					/>
+				) : (cat.isMinorInActual ? (
+					<AdjustIcon 
+						style={{
+							position: 'absolute',
+							top: '2px',
+							right: '2px',
+							fontSize: '13px',
+							color: 'black',
+							cursor: 'pointer',
+							zIndex: 1
+						}}
+					/>
+				) : (<></>))
+			) : (
+				<></>
+			)} */}
 		</Tooltip>
 	);
 }
 
-TooltipForAlgoEff.propTypes = {
-	cat: PropTypes.object,
-	algoEff: PropTypes.object,
-	onValueAlignmentChange: PropTypes.func
-};
-
-export default TooltipForAlgoEff;
+// export default Tooltips;

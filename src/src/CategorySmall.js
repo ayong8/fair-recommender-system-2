@@ -23,7 +23,7 @@ const CategoryContentWrapper = styled.div`
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding-left: 5px; 
+	padding-left: 8px; 
 	flex-direction: row;
 `;
   
@@ -145,9 +145,10 @@ const CategorySmall = ({
 				setSelectedEntry(selectedEntry.name === cat.name ? {} : cat);
 			}}
 	  >
-		<TooltipForCategory
-			cat={cat}
-		/>
+		{(panelID == 'predUser') && (<TooltipForCategory
+				cat={cat}
+			/>)
+		}
 		{showTopicHighlight
 		  ? (showTopicsForCategory ? 
 			renderAllTopicsOnMouseover(cat) 
