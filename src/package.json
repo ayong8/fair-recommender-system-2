@@ -12,6 +12,7 @@
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.7.2",
     "d3": "^7.9.0",
+    "d3plus-color": "^1.1.2",
     "http-proxy-middleware": "^3.0.0",
     "jquery": "^3.7.1",
     "lodash": "^4.17.21",

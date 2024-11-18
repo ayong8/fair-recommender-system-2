@@ -40,7 +40,7 @@ const TooltipContentWrapper = styled.div`
 	font-family: PT Sans Narrow;
 `;
 
-export const Tooltips = ({ cat, algoEff, onValueAlignmentChange }) => {
+export const Tooltips = ({ algoEff, onValueAlignmentChange, IconComponent }) => {
 	const [parsedExplanation, setParsedExplanation] = useState('');
 	const [ratingValue, setRatingValue] = useState(3);
 	  
@@ -97,7 +97,7 @@ export const Tooltips = ({ cat, algoEff, onValueAlignmentChange }) => {
         </IconWrapper>
       </ValuationWrapper>
     </TooltipContentWrapper>
-	)
+	);
 
 	return (
 		<Tooltip
@@ -115,40 +115,14 @@ export const Tooltips = ({ cat, algoEff, onValueAlignmentChange }) => {
 					},
 				},
 			}}
-			title={
-				tooltipContent
-			}
+			title={tooltipContent}
 			arrow
 		>
-			{/* {cat ? (
-				cat.isMajorInActual ? (
-					<RadioButtonCheckedIcon 
-						style={{
-							position: 'absolute',
-							top: '2px',
-							right: '1px',
-							fontSize: '13px',
-							color: 'black',
-							cursor: 'pointer',
-							zIndex: 1
-						}}
-					/>
-				) : (cat.isMinorInActual ? (
-					<AdjustIcon 
-						style={{
-							position: 'absolute',
-							top: '2px',
-							right: '2px',
-							fontSize: '13px',
-							color: 'black',
-							cursor: 'pointer',
-							zIndex: 1
-						}}
-					/>
-				) : (<></>))
-			) : (
-				<></>
-			)} */}
+			<div style={{ display: 'inline-block' }}>
+				{IconComponent ? (
+					<IconComponent />
+				) : <span>Hover me</span>}
+			</div>
 		</Tooltip>
 	);
 }

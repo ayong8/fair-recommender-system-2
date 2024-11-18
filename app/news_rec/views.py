@@ -32,6 +32,7 @@ class BaseUserView(APIView):
             'personalization_preference': user.personalization_preference,
             'cats_actual': user.cats_actual,
             'cats_pred': user.cats_pred,
+            'cats_pred_others': user.cats_pred_others,
         }
         request.session['user_data'] = session_data
         request.session.modified = True
@@ -50,6 +51,7 @@ class BaseUserView(APIView):
         user.personalization_preference = user_data.get('personalization_preference')
         user.cats_actual = user_data.get('cats_actual')
         user.cats_pred = user_data.get('cats_pred')
+        user.cats_pred_others = user_data.get('cats_pred_others')
 
         # Update algorithm effectiveness values
         stored_algo_effs = user_data.get('algo_effs', {})
@@ -68,6 +70,7 @@ class LoadData(BaseUserView):
         self.load_static_data()
         self.algo_eff_list = ['miscalibration', 'filterBubble', 'stereotype', 'popularityBias']
         self._algo_effs = None  # Initialize as None
+        self.topk = 20
 
     def load_static_data(self):
         self.df_users = pd.read_csv(os.path.join(data_dir, 'df_user_info.csv'))
@@ -83,8 +86,8 @@ class LoadData(BaseUserView):
                             sep='|', header=None, names=['da', 'en'])['en'].tolist()
         self.explanations = json.load(open(os.path.join(data_dir, 'explanations.json'), 'rb'))
 
-    def get(self, request, format=None):
-        user_id = 460523
+    def post(self, request, format=None):
+        user_id = int(request.data.get('user_id'))
         user = self.get_user(user_id)
         user.get_all_user_categories(self.category_names)
         user.calc_user_level_measures()
@@ -195,20 +198,21 @@ class UpdatePreferences(LoadData):
             cat: category_preferences.get(cat, 0.0) 
             for cat in self.category_names
         }
-        
         print('category_preferences: ', category_preferences)
         
         # 1. Initialize user with that stored data
         user = self.get_user(user_id)
         user = self.update_user_from_session(request, user)
         user.pred_uv = np.array(list(all_category_preferences.values()))
+        user.cats_pred = sorted(cats_pred, key=lambda x: x['ratio'], reverse=True)
         print('user.personalization_preference before: ', user.personalization_preference)
-        user.get_all_user_categories(self.category_names)
-        user.cats_pred = cats_pred
+        
+        user.update_all_categories(self.category_names)
         user.calc_user_level_measures()
         user.category_preferences_on_pred = dict(zip(self.category_names, user.pred_uv))
         df_ranked_items = user.df_items_pred
         print('user.personalization_preference after: ', user.personalization_preference)
+        
         # 3. Recalculate rankings with updated values
         df_updated_ranked_items, _ = user.rank_items(
             personalization_preference=user.personalization_preference
@@ -226,7 +230,60 @@ class UpdatePreferences(LoadData):
         request.session.save()
         
         return Response({
-            'updatedItems': user.df_items_pred.to_dict(orient='records')
+            'updatedItems': user.df_items_pred.to_dict(orient='records'),
+            'updatedCatsActual': user.cats_actual,
+            'updatedCatsPred': user.cats_pred,
+            'updatedCatsPredOthers': user.cats_pred_others
+        })
+    
+class UpdateItemPreferences(LoadData):
+    def post(self, request, format=None):
+        user_id = request.data.get('userID')
+        updated_items = request.data.get('updatedItems')
+        # category_preferences = request.data.get('categoryPreferences', {})
+        # cats_pred = request.data.get('catsPred')
+        
+        # all_category_preferences = {
+        #     cat: category_preferences.get(cat, 0.0) 
+        #     for cat in self.category_names
+        # }
+        # print('category_preferences: ', category_preferences)
+        
+        # 1. Initialize user with that stored data
+        user = self.get_user(user_id)
+        user = self.update_user_from_session(request, user)
+        # user.pred_uv = np.array(list(all_category_preferences.values()))
+        # user.cats_pred = sorted(cats_pred, key=lambda x: x['ratio'], reverse=True)
+        print('user.personalization_preference before: ', user.personalization_preference)
+        
+        user.update_all_categories(self.category_names)
+        user.calc_user_level_measures()
+        user.category_preferences_on_pred = dict(zip(self.category_names, user.pred_uv))
+        user.df_items_pred = pd.DataFrame.from_dict(updated_items)
+        df_ranked_items = user.df_items_pred
+        print('user.personalization_preference after: ', user.personalization_preference)
+        
+        # 3. Recalculate rankings with updated values
+        df_updated_ranked_items, _ = user.rank_items(
+            personalization_preference=user.personalization_preference
+        )
+
+        user.df_items_pred = df_updated_ranked_items
+        util.update_ranking_changes(df_ranked_items, df_updated_ranked_items)
+
+        print('items after: ', user.df_items_pred['itemID'].values)
+        print('weights/value after: ', user.algo_eff_weights, user.algo_eff_value_alignment)
+        
+        # 5. Store updated state back to session
+        self.update_session_user(request, user)
+        request.session.modified = True
+        request.session.save()
+        
+        return Response({
+            'updatedItems': user.df_items_pred.to_dict(orient='records'),
+            'updatedCatsActual': user.cats_actual,
+            'updatedCatsPred': user.cats_pred,
+            'updatedCatsPredOthers': user.cats_pred_others
         })
 
 class UpdateBipolarValueAlignment(LoadData):

@@ -11,6 +11,10 @@ urlpatterns = [
         view=views.UpdatePreferences.as_view(),
         name='update_preferences'
     ),
+    path('updateItemPreferences/',
+        view=views.UpdateItemPreferences.as_view(),
+        name='update_item_preferences'
+    ),
     path('updateBipolarValueAlignment/',
         view=views.UpdateBipolarValueAlignment.as_view(),
         name='update_bipolar_value_alignment'

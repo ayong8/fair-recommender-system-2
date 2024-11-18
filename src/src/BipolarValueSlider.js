@@ -1,8 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Slider, Switch } from '@mui/material';
 import styled from 'styled-components';
-
-import drawPaths from './util/drawPaths';
 import { l, c, setAlgoEffColorScales } from './GlobalStyles';
 
 const BipolarSliderWrapper = styled.div.attrs({
@@ -10,16 +8,8 @@ const BipolarSliderWrapper = styled.div.attrs({
   })`
 	width: 100%;
 	text-align: center;
-  margin-top: 20px;
   padding: 5px 0;
 	background-color: whitesmoke;
-  `;
-  
-  const BipolarTextWrapper = styled.div.attrs({
-	className: 'bipolar_slider_wrapper'
-  })`
-	text-align: left;
-	padding-left: 10px;
   `;
 
 const marks = [
@@ -40,7 +30,7 @@ const BipolarValueSlider = ({
   setSwitchValuePrefForMe,
   setSwitchValuePrefForOthers
 }) => {
-  const bipolarValue = bipolarScore >= 0.5 ? 'diversity' : 'personalization';
+  const bipolarValue = (bipolarScore > 0.5) ? 'diversity' : ((bipolarScore < 0.5) ? 'personalization' : 'equal');
 
 	const handleSwitchChangeForWant = (event) => {
 		setSwitchValuePrefForMe(prevState => ({
@@ -59,7 +49,8 @@ const BipolarValueSlider = ({
   const textForBipolarValue = {
     personalization: {
       overall: (
-          <>"I prefer to see more personalized news <span style={{ fontWeight: 600, fontStyle: 'italic' }}>based on</span> my interest."</>
+          <>"I prefer to see more personalized news <span style={{ fontWeight: 600, fontStyle: 'italic' }}>
+            <br />based on</span> my interest."</>
       ),
       specific: {
         want: (
@@ -74,9 +65,16 @@ const BipolarValueSlider = ({
         )
       }
     },
+    equal: {
+      overall: (
+        <>"I'm balanced."</>
+      ),
+      specific: { want: (<></>), notWant: (<></>)}
+    },
     diversity: {
       overall: (
-          <>"I prefer to see more diverse news <span style={{ fontWeight: 600, fontStyle: 'italic' }}>outside of</span> my interest."</>
+          <>"I prefer to see more diverse news <span style={{ fontWeight: 600, fontStyle: 'italic' }}>
+            <br />outside of</span> my interest."</>
       ),
       specific: {
         want: (
@@ -102,8 +100,8 @@ const BipolarValueSlider = ({
         <div style={{ fontSize: '1rem' }}>
           {textForBipolarValue[bipolarValue].overall}
         </div>
-        <br />
-        <div style={{ textAlign: 'left', paddingBottom: 3 }}>What is your detalied preference on {bipolarValue}?</div>
+        {/* <br /> */}
+        {/* <div style={{ textAlign: 'left', paddingBottom: 3 }}>What is your detalied preference on {bipolarValue}?</div>
         <div
           style={{
             display: 'flex',
@@ -148,7 +146,7 @@ const BipolarValueSlider = ({
           <div style={{ marginLeft: '10px' }}>
             {textForBipolarValue[bipolarValue].specific.notWant}
           </div>
-        </div>
+        </div> */}
       </div>
     );
   };
@@ -176,7 +174,6 @@ const BipolarValueSlider = ({
 
 	return (
 		<BipolarSliderWrapper>
-      <BipolarTextWrapper>What value do you pursue more?</BipolarTextWrapper>
       <Slider
         sx={{
           width: '40%',
@@ -193,6 +190,7 @@ const BipolarValueSlider = ({
           },
           '& .MuiSlider-markLabel': {
             fontSize: '1.1rem',
+            fontWeight: 600
           },
           '&::before': {
             content: '""',

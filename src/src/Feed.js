@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-import { Card, CardContent, Typography, Chip, Stack, Button, Box, Grid, Container } from '@mui/material';
+import SentimentVeryDissatisfiedIcon from '@mui/icons-material/SentimentVeryDissatisfied';
+import { Card, CardContent, Typography, Chip, Stack, Box, Grid, Container, Tooltip, IconButton, MenuItem } from '@mui/material';
+import { MoreHoriz } from '@mui/icons-material';
 
 const FeedWrapper = styled(Container)`
 	padding-top: ${({ theme }) => `${theme.spacing * 4}px`};
@@ -9,10 +11,9 @@ const FeedWrapper = styled(Container)`
 
 const Feed = ({
 	selectedEntry,
-	items
+	items,
+	handleItemPreferenceChange
 }) => {
-	useEffect(() => {
-	}, []);
 
 	return (
 		<FeedWrapper maxWidth="lg" sx={{ minWidth: '700px' }}>
@@ -44,7 +45,78 @@ const Feed = ({
 										}}
 									>
 										<span>
-											{item.category} - {item.final_score.toFixed(2)}
+											<span style={{ 
+												backgroundColor: 'gray',
+												padding: '4px',
+												color: 'white',
+												borderRadius: '5px',
+												fontWeight: 600
+											}}>
+												{item.category}
+											</span>
+											<span>&nbsp;- {item.final_score.toFixed(2)}</span>
+										<Tooltip 
+											title={
+												<div style={{ 
+													// padding: '2px',
+													'&:hover': {
+														transform: 'scale(1.02)',
+														transition: 'transform 0.2s ease-in-out'
+													}
+												}}>
+													<Typography 
+														variant="body2" 
+														sx={{
+															padding: '2px',
+															// backgroundColor: '#e0e0e0',
+															borderRadius: '4px 4px 0 0'
+														}}
+													>
+														Not interested in:
+													</Typography>
+													<MenuItem 
+														dense
+														onClick={() => handleItemPreferenceChange(item)}
+														sx={{
+															// backgroundColor: '#ffffff',
+															'&:hover': {
+																backgroundColor: 'black',
+																
+																transform: 'translateY(-1px)',
+																transition: 'all 0.2s ease-in-out',
+																borderRadius: 1
+															}
+														}}
+													>
+														<SentimentVeryDissatisfiedIcon 
+															fontSize="small" 
+															sx={{ mr: 1 }}
+														/>
+														this article
+													</MenuItem>
+													{/* <MenuItem dense>Articles about {item.category}</MenuItem>
+													{item.topics.map((topic, i) => (
+														<MenuItem key={i} dense>Articles about {topic}</MenuItem>
+													))} */}
+												</div>
+											}
+											placement="right"
+										>
+											<IconButton 
+												size="small" 
+												sx={{ 
+													padding: 0, 
+													ml: 1,
+													'&:hover': {
+														transform: 'scale(1.1)',
+														transition: 'transform 0.2s ease-in-out',
+														// backgroundColor: '#e0e0e0'
+													}
+												}}
+											>
+												<MoreHoriz fontSize="small" />
+											</IconButton>
+										</Tooltip>
 										</span>
 										<span
 											style={{
@@ -52,9 +124,9 @@ const Feed = ({
 												color: item.change === 'increased' ? 'red' : item.change === 'decreased' ? 'blue' : 'inherit'
 											}}
 										>
-											{item.change === 'increased' && '↑'}
-											{item.change === 'decreased' && '↓'}
-											{item.change === 'no change' && '→'}
+											{item.change === 'increased' && '▲'}
+											{item.change === 'decreased' && '▼'}
+											{item.change === 'no change' && '-'}
 										</span>
 									</Typography>
 									<Typography variant="h6" sx={{ lineHeight: 1.2 }} gutterBottom>{item.title}</Typography>

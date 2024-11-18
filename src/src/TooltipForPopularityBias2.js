@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import * as d3 from 'd3';
 import _ from 'lodash';
 
 import { Tooltip, Box } from '@mui/material';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
+import ArrowCircleUpIcon from '@mui/icons-material/ArrowCircleUp';
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import PropTypes from 'prop-types';
-
-import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
-import AdjustIcon from '@mui/icons-material/Adjust';
 
 import { c, algoEffRatingIcons, StyledRating } from './GlobalStyles';
 import { parseHTML } from './util/util';
+import IconForPopularityBias from './IconForPopularityBias';
 
 const ValuationWrapper = styled.div`
   display: flex;
@@ -40,9 +40,10 @@ const TooltipContent = styled.div`
 	font-family: PT Sans Narrow;
 `;
 
-const TooltipForAlgoEff = ({ 
+const TooltipForPopularityBias2 = ({ 
 	cat, 
 	algoEff, 
+	popularityBiasScale,
 	onValueAlignmentChange 
 }) => {
 	const [parsedExplanation, setParsedExplanation] = useState('');
@@ -51,7 +52,6 @@ const TooltipForAlgoEff = ({
 	useEffect(() => {
 		if (algoEff?.explanation?.[algoEff?.valueAlignment]) {
 			const parsedHTML = parseHTML(algoEff.explanation[algoEff.valueAlignment]);
-			console.log('parsedHTML: ', parsedHTML)
 			setParsedExplanation(parsedHTML?.innerHTML || '');
 
 			const initialRating = Object.keys(algoEffRatingIcons).find(key => 
@@ -105,37 +105,37 @@ const TooltipForAlgoEff = ({
 	const renderIcon = () => {
 		if (!cat) return <></>;
 		
-		if (cat.isMajorInActual) {
+		if (cat.measures.popularityBias > 0) {
 			return (
-				<RadioButtonCheckedIcon 
+				<IconForPopularityBias 
 					style={{
-						position: 'absolute',
-						top: '2px',
-						right: '1px',
-						fontSize: '13px',
-						color: 'black',
-						cursor: 'pointer',
-						zIndex: 1
+						position: 'relative',
+						left: '0px',
+						top: '50%',
+						// transform: 'translateY(-50%)',
+						fontSize: '25px',
+						color: d3.color(popularityBiasScale(cat.measures.popularityBias)).darker(0.5),
+						zIndex: 1000
 					}}
 				/>
 			);
 		}
 		
-		if (cat.isMinorInActual) {
-			return (
-				<AdjustIcon 
-					style={{
-						position: 'absolute',
-						top: '2px',
-						right: '2px',
-						fontSize: '13px',
-						color: 'black',
-						cursor: 'pointer',
-						zIndex: 1
-					}}
-				/>
-			);
-		}
+		// if (cat.measures.filterBubble < 0) {
+		// 	return (
+		// 		<RemoveCircleOutlineIcon 
+		// 			style={{
+		// 				position: 'relative',
+		// 				left: '0px',
+		// 				top: '50%',
+		// 				// transform: 'translateY(-50%)',
+		// 				fontSize: '25px',
+		// 				color: d3.color(filterBubbleScale(cat.measures.filterBubble)).darker(0.5),
+		// 				zIndex: 1000
+		// 			}}
+		// 		/>
+		// 	);
+		// }
 		
 		return <></>;
 	};
@@ -165,10 +165,10 @@ const TooltipForAlgoEff = ({
 	);
 }
 
-TooltipForAlgoEff.propTypes = {
+TooltipForPopularityBias2.propTypes = {
 	cat: PropTypes.object,
 	algoEff: PropTypes.object,
 	onValueAlignmentChange: PropTypes.func
 };
 
-export default TooltipForAlgoEff;
+export default TooltipForPopularityBias2;

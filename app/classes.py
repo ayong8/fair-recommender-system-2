@@ -36,7 +36,7 @@ class User:
         self.personalization_preference = 0.5
 
         # Category-level variables
-        self.categories = []
+        self.category_names = []
         self.cats_actual = []
         self.cats_pred = []
         self.cats_actual_others = []
@@ -73,17 +73,15 @@ class User:
             }
         return algo_effs_dict
 
-    def get_all_user_categories(self, categories):
+    def get_all_user_categories(self, category_names):
         measures = {
             'diversity': ['stereotype', 'popularityBias'],
             'personalization': ['miscalibration', 'filterBubble']
         }
 
         entry_measure_dict = {}
-        print('categoriesssss: ', categories)
-        print('self.pred_uv: ', self.pred_uv)
-        for entry_i, cat in enumerate(categories):
-            entry_name = categories[entry_i]
+        for entry_i, cat in enumerate(category_names):
+            entry_name = category_names[entry_i]
             entry_measure_dict[entry_name] = self.calc_cat_measures(
                     self.actual_uv[entry_i],
                     self.pred_uv[entry_i],
@@ -105,8 +103,33 @@ class User:
         self.cats_actual_others = self.get_categories(self.df_actual_others, cat_measures, top_entries_dict)
         self.cats_pred_others = self.get_categories(self.df_pred_others, cat_measures, top_entries_dict, is_cats_pred=True)
 
+        self.find_common_categories()
+        
         self.major_category_names = self.get_major_entry_names(self.cats_actual)
         self.minor_category_names = self.get_minor_entry_names(self.cats_actual)
+
+    def find_common_categories(self):
+        actual_names = {cat['name'] for cat in self.cats_actual}
+        pred_names = {cat['name'] for cat in self.cats_pred}
+        common_names = actual_names.intersection(pred_names)
+        for cat in self.cats_pred:
+            if cat['name'] in common_names:
+                cat['isCommonWithinMe'] = True
+        
+        for cat in self.cats_actual:
+            if cat['name'] in common_names:
+                cat['isCommonWithinMe'] = True
+        
+        pred_others_names = {cat['name'] for cat in self.cats_pred_others}
+        common_pred_names = pred_names.intersection(pred_others_names)
+        
+        for cat in self.cats_pred:
+            if cat['name'] in common_pred_names:
+                cat['isCommonBtnMeAndOthers'] = True
+        
+        for cat in self.cats_pred_others:
+            if cat['name'] in common_pred_names:
+                cat['isCommonBtnMeAndOthers'] = True
 
     def get_categories(self, df_interactions, entry_measures, top_entries_dict, is_cats_pred=False):
         num_all_items = df_interactions.shape[0]
@@ -132,7 +155,7 @@ class User:
                 topics.append({
                     'name': topic[0],
                     'items': num_items_in_c_t.to_dict(orient='records'),
-                    'size': num_num_items_in_c_t,
+                    # 'size': num_num_items_in_c_t,
                     'ratio': round(num_num_items_in_c_t / num_items_in_c, 3)
                 })
 
@@ -148,8 +171,12 @@ class User:
                 'items': c_items.to_dict(orient='records'),
                 'topics': topics,
                 'measures': entry_measures[cat],
-                'size': num_items_in_c,
-                'ratio': round(num_items_in_c / num_all_items, 15)
+                # 'size': num_items_in_c,
+                'ratio': round(num_items_in_c / num_all_items, 15),
+                'isCommonWithinMe': False,
+                'isCommonBtnMeAndOthers': False,
+                'isOnlyInActual': False,
+                'isOnlyInPredOthers': False
             })
 
         # Sort categories by its size
@@ -166,6 +193,43 @@ class User:
 
         return categories
     
+    def update_all_categories(self, category_names):
+        measures = {
+            'diversity': ['stereotype', 'popularityBias'],
+            'personalization': ['miscalibration', 'filterBubble']
+        }
+
+        entry_measure_dict = {}
+        for entry_i, cat in enumerate(category_names):
+            entry_name = category_names[entry_i]
+            actual_uv = next((cat['ratio'] for cat in self.cats_actual if cat['name'] == entry_name), 0)
+            pred_uv = next((cat['ratio'] for cat in self.cats_pred if cat['name'] == entry_name), 0)
+
+            entry_measure_dict[entry_name] = self.calc_cat_measures(
+                    actual_uv,
+                    pred_uv,
+                    self.actual_mean_uv[entry_i],
+                    self.pred_mean_uv[entry_i]
+                )
+            
+        print('entry_measure_dict: ', entry_measure_dict)
+        df_cat_measures = pd.DataFrame.from_dict(entry_measure_dict).transpose()
+        df_entry_measures_normed = (df_cat_measures - df_cat_measures.min()) / (df_cat_measures.max() - df_cat_measures.min())
+        df_cat_measures['diversity'] = df_entry_measures_normed[measures['diversity']].mean(axis=1)
+        df_cat_measures['personalization'] = df_entry_measures_normed[measures['personalization']].mean(axis=1)
+        df_cat_measures['bipolar'] = df_cat_measures['diversity'] - df_cat_measures['personalization']
+        cat_measures = df_cat_measures.transpose().to_dict(orient='dict')
+        
+        self.cats_actual = self.update_cat_measures(self.cats_actual, cat_measures)
+        self.cats_pred = self.update_cat_measures(self.cats_pred, cat_measures)
+        self.cats_pred_others = self.update_cat_measures(self.cats_pred_others, cat_measures)
+
+    
+    def update_cat_measures(self, cats, cat_measures):
+        for cat in cats:
+            cat['measures'] = cat_measures[cat['name']]
+        return cats
+                
     def get_items(self, df_user_data):
         df_items = df_user_data.copy()
         df_items.loc[:,'final_score'] = df_items['score']
@@ -218,13 +282,13 @@ class User:
             ST = compute_stereotype_for_entry(entry_actual, entry_pred, entry_actual_mean, entry_pred_mean)
             MC = compute_miscalibration_for_entry(entry_actual, entry_pred)
             FB = compute_pref_amplification(entry_actual, entry_pred)
-            PB = compute_popularity_lift_for_entry(entry_actual, entry_pred_mean)
+            PB = compute_popularity_lift_for_entry(entry_actual, entry_pred, entry_pred_mean)
 
             return {
                 'actual': entry_actual,
                 'pred': entry_pred,
                 'miscalibration': float(MC),
-                'filterBubble': float(FB),
+                'filterBubble': np.clip(np.sign(FB) * normalize_score(abs(FB), 0, 1), -1, 1),
                 'stereotype': float(ST),
                 'popularityBias': float(PB)
             }
@@ -242,7 +306,7 @@ class User:
             pred_score = topic['score']
             actual_topic = self.df_topics_actual[self.df_topics_actual['name'] == topic['name']]
             actual_score = actual_topic['score'].values[0] if not actual_topic.empty else 0
-            pop_bias = 0 if actual_score == 0 else compute_popularity_lift_for_entry(actual_score, pred_score)
+            pop_bias = 0 if actual_score == 0 else compute_popularity_lift_for_entry(actual_score, pred_score, pred_score)
             popularity_bias_score += pop_bias * (pred_score / total_relevance)
             topic_preference_scores.append(self.topic_preferences_on_pred[topic['name']])
             if topic['name'] == 'City life':
@@ -276,7 +340,7 @@ class User:
             'miscalibration': 1 - normalize_score(miscalibration_score, 0, 1),
             'popularityBias': align_popularity_bias(normalize_score(popularity_bias_score, 0, 10)),
             'stereotype': normalize_score(stereotype_score, -1, 1),
-            'filterBubble': 1 - normalize_score(filter_bubble_score, -5, 5),
+            'filterBubble': np.sign(filter_bubble_score) * normalize_score(abs(filter_bubble_score), 0, 1),
             'topic_preference': mean_topic_preference_score,
             'category_preference': category_preference_score
         }
@@ -463,6 +527,41 @@ class User:
     
     def get_minor_entry_names(self, entries):
             return [ entry['name'] if entry['isMinor'] else None for entry in entries ]
+
+    def find_common_categories(self):
+        # Find common categories by name and set 'isCommonWithinMe' and 'isCommonBtnMeAndOthers'
+        actual_names = {cat['name'] for cat in self.cats_actual}
+        pred_names = {cat['name'] for cat in self.cats_pred}  # Get names from cats_pred
+        pred_others_names = {cat['name'] for cat in self.cats_pred_others}  # Get names from cats_pred_others
+        common_names_in_me = actual_names.intersection(pred_names)  # Find common names
+        
+        for cat in self.cats_pred:
+            if cat['name'] in common_names_in_me:  # Check against common names
+                cat['isCommonWithinMe'] = True
+            else:
+                cat['isOnlyInActual'] = True
+        
+        for cat in self.cats_actual:
+            if cat['name'] in common_names_in_me:  # Check against common names
+                cat['isCommonWithinMe'] = True
+            else:
+                cat['isOnlyInActual'] = True
+        
+        # Find common categories in cats_pred and cats_pred_others
+        common_names_in_pred = pred_names.intersection(pred_others_names)  # Find common names
+        
+        for cat in self.cats_pred:
+            if cat['name'] in common_names_in_pred:  # Check against common names
+                cat['isCommonBtnMeAndOthers'] = True
+            else:
+                cat['isOnlyInPredOthers'] = True
+        
+        for cat in self.cats_pred_others:  # Save isCommonBtnMeAndOthers in cats_pred_others as well
+            if cat['name'] in common_names_in_pred:  # Check against common names
+                cat['isCommonBtnMeAndOthers'] = True
+            else:
+                cat['isOnlyInPredOthers'] = True
+
 # class Topic:
 #     def __init__(self, id, name):
 #         self.id = id
@@ -550,10 +649,30 @@ def normalize_score(score, min_val, max_val):
 def align_popularity_bias(score):
     return 1 - (1 / (1 + score))  # Higher score now means more diverse
 
-def compute_popularity_lift_for_entry(entry_actual, entry_pred_mean):
+def compute_popularity_lift_for_entry(entry_actual, entry_pred, entry_pred_mean):
+    if entry_pred_mean == 0:
+        entry_pred_mean += 0.0001
     if entry_actual == 0:
         entry_actual += 0.0001
-    return np.round(entry_pred_mean / entry_actual, 3)
+
+    # Only consider lift if population mean is higher than actual
+    if entry_pred_mean <= entry_actual or entry_pred <= entry_actual:
+        # No lift needed or no lift occurred
+        popularity_lift = 0.0
+    else:
+        # Calculate bounded lift
+        lift_achieved = min(entry_pred, entry_pred_mean) - entry_actual
+        lift_possible = entry_pred_mean - entry_actual
+        popularity_lift = lift_achieved / lift_possible if lift_possible != 0 else 0.0
+
+    return popularity_lift
+    # Option 1: Log transformation
+    # return np.round(np.log2(1 + entry_pred_mean / entry_actual), 3)
+    
+    # return (entry_pred_mean - entry_actual) / entry_pred_mean
+    # Option 2: Sigmoid-like transformation
+    # raw_ratio = entry_pred_mean / entry_actual
+    # return np.round(2 / (1 + np.exp(-raw_ratio)) - 1, 3)
 
 def compute_miscalibration_for_entry(entry_actual, entry_pred):
     return np.abs(entry_actual - entry_pred)

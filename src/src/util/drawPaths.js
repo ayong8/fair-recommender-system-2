@@ -1,63 +1,86 @@
 import $ from 'jquery';
 import _ from 'lodash';
-import * as d3 from 'd3'
+import * as d3 from 'd3';
+import { lineWidthScale } from '../GlobalStyles';
 
-// Reference: https://jsfiddle.net/bbcfk164/
-// https://gist.github.com/alojzije/11127839
-const drawPaths = (svg, catsActualUser, catsPredUser, miscalibrationScale) => {
-    const commonCatsWithinMe = _.intersectionBy(catsActualUser, catsPredUser, 'name');
+const drawPaths = (mode, svgContainer, svg, fromPanelID, toPanelID, fromCats, toCats, lineColorScale) => {
+    const commonCats = _.intersectionBy(fromCats, toCats, 'name');
 
-    //helper functions, it turned out chrome doesn't support Math.sgn() 
-    function signum(x) {
-        return (x < 0) ? -1 : 1;
-    }
-    function absolute(x) {
-        return (x < 0) ? -x : x;
-    }
-
-    function drawPath(svg, cat, path, startX, startY, endX, endY) {
-        // get the path's stroke width (if one wanted to be really precize, one could use half the stroke size)
-        var stroke =  parseFloat(path.attr('stroke-width'));
-        // check if the svg is big enough to draw the path, if not, set heigh/width
-        if (svg.attr('height') <  endY)                 svg.attr('height', endY);
-        if (svg.attr('width' ) < (startX + stroke) )    svg.attr('width', (startX + stroke));
-        if (svg.attr('width' ) < (endX   + stroke) )    svg.attr('width', (endX   + stroke));
+    const drawPath = (svg, cat, path, startX, startY, startRatio, endRatio, endX, endY) => {
+        // Set base and end widths for the path
+        const startWidth = lineWidthScale(startRatio);
+        const endWidth = lineWidthScale(endRatio);
+        const algoEffScore = (mode == 'within-me') ? cat.measures.filterBubble : cat.measures.popularityBias;
         
-        var deltaX = (endX - startX) * 0.1;
-        var deltaY = (endY - startY) * 0.1;
-        // for further calculations which ever is the shortest distance
-        var delta  =  deltaX < absolute(deltaY) ? deltaX : absolute(deltaY);
+        // Check SVG size
+        if (svg.attr('height') < endY) svg.attr('height', endY);
+        if (svg.attr('width') < (startX + endWidth)) svg.attr('width', (startX + endWidth));
+        if (svg.attr('width') < (endX + endWidth)) svg.attr('width', (endX + endWidth));
 
-        // set sweep-flag (counter/clock-wise)
-        // if start element is closer to the left edge,
-        // draw the first arc counter-clockwise, and the second one clock-wise
-        var arc1 = 0; var arc2 = 1;
-        if (startY > endY) {
-            arc1 = 1;
-            arc2 = 0;
-        }
+        // Calculate control points for extremely smooth curves
+        const controlPoint1X = startX + (endX - startX) * 0.9; // First control point moved to 45%
+        const controlPoint1Y = startY - (endY - startY) * 0.1; // Small vertical offset for smoother start
+        
+        const controlPoint2X = startX + (endX - startX) * 0.01; // Second control point moved to 55%
+        const controlPoint2Y = endY + (endY - startY) * 0.1; // Small vertical offset for smoother end
 
-        // Calculate control points for the Bézier curve
-        var midX = (startX + endX) / 2;
-        var controlY = (startY + endY) / 2;
-        var controlPoint1X = midX;
-        var controlPoint1Y = startY;
-        var controlPoint2X = midX;
-        var controlPoint2Y = endY;
+        // Calculate angle for perpendicular offsets
+        const angle = Math.atan2(endY - startY, endX - startX);
+        const perpendicular = angle + Math.PI / 2;
 
-        // Draw the smooth S-curve using cubic Bézier
-        path.attr('d', `M${startX},${startY} ` +
-                    `C${controlPoint1X},${controlPoint1Y} ` +
-                    `${controlPoint2X},${controlPoint2Y} ` +
-                    `${endX},${endY}`);
-        path.attr('stroke', d3.color(miscalibrationScale(cat.measures.miscalibration)).darker(1));
-        path.attr('stroke-width', 6);
+        // Calculate offsets for the start
+        const topStartOffsetX = startX + Math.cos(perpendicular) * (startWidth / 2);
+        const topStartOffsetY = startY + Math.sin(perpendicular) * (startWidth / 2);
+        const bottomStartOffsetX = startX + Math.cos(perpendicular + Math.PI) * (startWidth / 2);
+        const bottomStartOffsetY = startY + Math.sin(perpendicular + Math.PI) * (startWidth / 2);
+        
+        // Calculate offsets for the end
+        const topEndOffsetX = endX + Math.cos(perpendicular) * (endWidth / 2);
+        const topEndOffsetY = endY + Math.sin(perpendicular) * (endWidth / 2);
+        const bottomEndOffsetX = endX + Math.cos(perpendicular + Math.PI) * (endWidth / 2);
+        const bottomEndOffsetY = endY + Math.sin(perpendicular + Math.PI) * (endWidth / 2);
+
+        // Calculate control points with more gradual width transition
+        const width1 = startWidth + (endWidth - startWidth) * 0.45;
+        const width2 = startWidth + (endWidth - startWidth) * 0.55;
+
+        const topControl1X = controlPoint1X + Math.cos(perpendicular) * (width1 / 2);
+        const topControl1Y = controlPoint1Y + Math.sin(perpendicular) * (width1 / 2);
+        const bottomControl1X = controlPoint1X + Math.cos(perpendicular + Math.PI) * (width1 / 2);
+        const bottomControl1Y = controlPoint1Y + Math.sin(perpendicular + Math.PI) * (width1 / 2);
+
+        const topControl2X = controlPoint2X + Math.cos(perpendicular) * (width2 / 2);
+        const topControl2Y = controlPoint2Y + Math.sin(perpendicular) * (width2 / 2);
+        const bottomControl2X = controlPoint2X + Math.cos(perpendicular + Math.PI) * (width2 / 2);
+        const bottomControl2Y = controlPoint2Y + Math.sin(perpendicular + Math.PI) * (width2 / 2);
+
+        // Create the path with maximally smooth curves
+        const pathData = `
+            M ${topStartOffsetX},${topStartOffsetY}
+            C ${topControl1X},${topControl1Y}
+              ${topControl2X},${topControl2Y}
+              ${topEndOffsetX},${topEndOffsetY}
+            L ${bottomEndOffsetX},${bottomEndOffsetY}
+            C ${bottomControl2X},${bottomControl2Y}
+              ${bottomControl1X},${bottomControl1Y}
+              ${bottomStartOffsetX},${bottomStartOffsetY}
+            Z
+        `;
+
+        // Apply the path data and styling
+        path.attr('d', pathData);
+        path.attr('fill', 
+            ((mode == 'between-me-and-others') 
+                && ((algoEffScore >= 0) && (algoEffScore < 0.1))) 
+            ? 'none' 
+            : lineColorScale(algoEffScore)
+        );
+        path.attr('stroke', 'none');
+        path.attr('opacity', 0.8)
         svg.append(path);
     }
 
-    function connectElements(svg, cat, path, startElem, endElem) {
-        var svgContainer= $('#svgContainer');
-
+    const connectElements = (svgContainer, svg, cat, fromCat, toCat, path, startElem, endElem) => {
         // if first element is lower than the second, swap!
         if(startElem.offset().left > endElem.offset().left){
             var temp = startElem;
@@ -66,41 +89,47 @@ const drawPaths = (svg, catsActualUser, catsPredUser, miscalibrationScale) => {
         }
 
         // get (top, left) corner coordinates of the svg container   
-        var svgTop  = svgContainer.offset().top;
-        var svgLeft = svgContainer.offset().left;
+        const svgTop = svgContainer.offset().top;
+        const svgLeft = svgContainer.offset().left;
 
-        // get (top, left) coordinates for the two elements
-        var startCoord = startElem.offset();
-        var endCoord   = endElem.offset();
+        // calculate path's start (x,y) coords
+        const startCoord = startElem.offset();
+        const endCoord = endElem.offset();
+        
+        const startX = startCoord.left + startElem.outerWidth() - svgLeft - 25;
+        const startY = startCoord.top + 0.5 * startElem.outerHeight() - svgTop;
+        const endX = endCoord.left - svgLeft + 25;
+        const endY = endCoord.top + 0.5 * endElem.outerHeight() - svgTop;
+        const startRatio = fromCat.ratio;
+        const endRatio = toCat.ratio;
 
-        // calculate path's start (x,y)  coords
-        // we want the x coordinate to visually result in the element's mid point
-        var startX = startCoord.left + startElem.outerWidth() - svgLeft;    // x = left offset + 0.5*width - svg's left offset
-        var startY = startCoord.top  + 0.5*startElem.outerHeight() - svgTop;        // y = top offset + height - svg's top offset
-
-        // calculate path's end (x,y) coords
-        var endX = endCoord.left - svgLeft;
-        var endY = endCoord.top + 0.5*endElem.outerHeight() - svgTop;
-
-        // call function for drawing the path
-        drawPath(svg, cat, path, startX, startY, endX, endY);
+        drawPath(svg, cat, path, startX, startY, startRatio, endRatio, endX, endY);
     }
 
-    function connectAll(svg, commonCatsWithinMe) {
-        commonCatsWithinMe.forEach(cat => {
+    const connectAll = (svgContainer, svg, fromPanelID, toPanelID, fromCats, toCats, commonCats) => {
+        commonCats.forEach(cat => {
             const newPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const fromCat = fromCats.filter(fromCat => fromCat.name == cat.name)[0];
+            const toCat  = toCats.filter(toCat => toCat.name == cat.name)[0];
             $(newPath).attr({
                 id: `path-from-actual-to-pred-user-${cat.name}`,
                 class: 'path',
-                stroke: 'none',
-                'stroke-width': 0,
                 fill: 'none'
             });
-            connectElements(svg, cat, $(newPath), $('.actualUser' + `.${cat.name}`),   $('.predUser' + `.${cat.name}`));
+            connectElements(
+                svgContainer, 
+                svg, 
+                cat, 
+                fromCat,
+                toCat,
+                $(newPath), 
+                $(`.${fromPanelID}` + `.${cat.name}`), 
+                $(`.${toPanelID}` + `.${cat.name}`)
+            );
         });
     }
 
-    connectAll(svg, commonCatsWithinMe);
+    connectAll(svgContainer, svg, fromPanelID, toPanelID, fromCats, toCats, commonCats);
 }
 
 export default drawPaths;
